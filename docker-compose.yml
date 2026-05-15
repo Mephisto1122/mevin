@@ -1,0 +1,33 @@
+services:
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  mevin:
+    build: .
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./snapshots:/app/snapshots
+      - ./monitor.db:/app/monitor.db
+    environment:
+      - MEVIN_TOKEN=${MEVIN_TOKEN:-}
+    depends_on:
+      - ollama
+    # For USB cameras, uncomment:
+    # devices:
+    #   - /dev/video0:/dev/video0
+    # privileged: true
+
+volumes:
+  ollama_data:
