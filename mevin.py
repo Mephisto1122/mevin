@@ -4,23 +4,26 @@ pip install fastapi uvicorn opencv-python requests numpy python-multipart
 python mevin.py -> http://localhost:5555
 API docs -> http://localhost:5555/docs
 """
-import asyncio,base64,json,os,pathlib,socket,sqlite3,subprocess,threading,time
+import asyncio,base64,json,os,pathlib,re,socket,sqlite3,subprocess,threading,time
 from collections import deque
 from datetime import datetime,timedelta
 from queue import Empty,Queue
 from typing import Optional
 import cv2,numpy as np,requests as req
+_NEG_RE=re.compile(r"\b(no|not|don't|didn't|doesn't|without|never|absence|lack|free of|no sign of|isn't|aren't|wasn't|weren't)\b",re.I)
 import uvicorn
 from fastapi import FastAPI,Request
 from fastapi.responses import HTMLResponse,JSONResponse,StreamingResponse,Response
 
 PORT=5555;HOST="0.0.0.0";DB_PATH="monitor.db";SNAPSHOT_DIR="snapshots"
-STREAM_FPS=12;THUMB_WIDTH=280;JPEG_QUALITY=75
+STREAM_FPS=15;THUMB_WIDTH=280;JPEG_QUALITY=65
+
+
 DEFAULTS={
     "model":"gemma3:4b","ollama_url":"http://localhost:11434",
-    "prompt":"What is happening? Count people, describe actions, flag danger. Two sentences max.",
+    "prompt":"People count, actions, danger. One sentence.",
     "alert_keywords":json.dumps(["weapon","knife","gun","fight","fighting","attack","punch","kick","aggressive","threatening","suspicious","intruder","stranger","trespassing","break-in","forced","smash","fallen","falling","unconscious","injured","bleeding","fire","smoke","flame","running","shouting","screaming","panic","unattended","abandoned","mask","covered face","hoodie","loitering","hiding","crawling","climbing","vandalism","theft","stealing","robbery"]),
-    "max_tokens":"200","inference_size":"448","analysis_interval":"5",
+    "max_tokens":"80","inference_size":"768","analysis_interval":"3",
     "telegram_token":"","telegram_chat_id":"","telegram_on_alert":"true","telegram_on_all":"false",
     "telegram_quiet_start":"","telegram_quiet_end":"","telegram_min_interval":"30",
     "motion_sensitivity":"0.3","motion_enabled":"true",
@@ -28,9 +31,19 @@ DEFAULTS={
     "feed_show_stable":"true","feed_max_items":"200","setup_done":"false",
     "retain_days":"30","retain_max_obs":"5000","retain_max_snap_mb":"2000",
     "cleanup_interval_min":"60","thumb_retain_days":"7",
+    
 }
 
 app=FastAPI(title="Mevin",description="Real-time AI video analysis",docs_url="/docs")
+
+# Suppress noisy Windows connection reset errors
+import logging
+class _ConnFilter(logging.Filter):
+    def filter(self,record):
+        msg=record.getMessage()
+        return "forcibly closed" not in msg and "ConnectionReset" not in msg and "WinError 10054" not in msg
+for _ln in ["uvicorn.error","uvicorn","asyncio"]:
+    logging.getLogger(_ln).addFilter(_ConnFilter())
 os.makedirs(SNAPSHOT_DIR,exist_ok=True)
 def sint(v,d=0):
     try:return int(v)
@@ -50,15 +63,22 @@ def get_shared_db():
         _db_conn=sqlite3.connect(DB_PATH,check_same_thread=False,timeout=30)
         _db_conn.row_factory=sqlite3.Row
         _db_conn.execute("PRAGMA journal_mode=WAL")
-        _db_conn.execute("PRAGMA busy_timeout=10000")
+        _db_conn.execute("PRAGMA busy_timeout=5000")
+        _db_conn.execute("PRAGMA synchronous=NORMAL")  # faster writes
+        _db_conn.execute("PRAGMA cache_size=-4000")     # 4MB cache
     return _db_conn
 def db_exec(sql,params=(),fetch=False,fetchone=False):
-    with _db_lock:
+    acquired=_db_lock.acquire(timeout=5)
+    if not acquired:
+        print("[DB] Lock timeout, skipping")
+        return [] if fetch else None if fetchone else 0
+    try:
         c=get_shared_db()
         r=c.execute(sql,params)
         if fetchone:return r.fetchone()
         if fetch:return r.fetchall()
         c.commit();return r.rowcount
+    finally:_db_lock.release()
 def db_exec_script(sql):
     with _db_lock:
         c=get_shared_db();c.executescript(sql)
@@ -74,18 +94,55 @@ def init_db():
 def get_setting(k):
     r=db_exec("SELECT value FROM settings WHERE key=?",(k,),fetchone=True)
     return r["value"] if r else DEFAULTS.get(k,"")
-def set_setting(k,v):db_exec("REPLACE INTO settings(key,value)VALUES(?,?)",(k,str(v)))
+def set_setting(k,v):
+    db_exec("REPLACE INTO settings(key,value)VALUES(?,?)",(k,str(v)))
+    _settings_cache.clear()  # invalidate cache
+
+# Settings cache - avoid DB reads on every analysis cycle
+_settings_cache={}
+_settings_ts=0
 def get_all_settings():
+    global _settings_ts
+    now=time.time()
+    if _settings_cache and now-_settings_ts<2:  # cache for 2 seconds
+        return dict(_settings_cache)
     rows=db_exec("SELECT key,value FROM settings",fetch=True)
     s=dict(DEFAULTS)
     for r in rows:s[r["key"]]=r["value"]
-    return s
+    _settings_cache.clear();_settings_cache.update(s)
+    _settings_ts=now
+    return dict(s)
+_cameras_cache=[];_cameras_ts=0
 def get_cameras_from_db():
+    global _cameras_ts
+    now=time.time()
+    if _cameras_cache and now-_cameras_ts<2:
+        return list(_cameras_cache)
     rows=db_exec("SELECT * FROM cameras WHERE enabled=1 ORDER BY sort_order",fetch=True)
-    return [dict(r) for r in rows]
+    result=[dict(r) for r in rows]
+    _cameras_cache.clear();_cameras_cache.extend(result)
+    _cameras_ts=now
+    return result
+def invalidate_cameras():
+    _cameras_cache.clear()
+    global _cameras_ts;_cameras_ts=0
+_obs_queue=Queue(maxsize=200)
 def save_observation(obs):
-    db_exec("INSERT OR REPLACE INTO observations VALUES(?,?,?,?,?,?,?,?,?,?)",
-        (obs["id"],obs["camera_id"],obs["camera_name"],obs["timestamp"],obs["text"],obs.get("is_alert",0),json.dumps(obs.get("alert_keywords",[])),obs.get("snapshot_path",""),obs.get("thumb_b64",""),0))
+    try:_obs_queue.put_nowait(obs)
+    except:pass  # drop if queue full
+
+def _obs_writer():
+    """Background thread that writes observations to DB without blocking analyzer."""
+    while True:
+        try:
+            obs=_obs_queue.get(timeout=5)
+            db_exec("INSERT OR REPLACE INTO observations VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (obs["id"],obs["camera_id"],obs["camera_name"],obs["timestamp"],obs["text"],
+                 obs.get("is_alert",0),json.dumps(obs.get("alert_keywords",[])),
+                 obs.get("snapshot_path",""),obs.get("thumb_b64",""),0))
+        except Empty:continue
+        except Exception as e:print(f"[DB] Write error: {e}")
+threading.Thread(target=_obs_writer,daemon=True).start()
 init_db()
 
 # ===============================================================================
@@ -116,6 +173,7 @@ class CameraFeed:
     def __init__(s,cfg):
         s.id=cfg["id"];s.name=cfg["name"];s.source=cfg["source"];s.frame=None;s.lock=threading.Lock();s.running=True;s.connected=False
         s.is_file=not str(s.source).isdigit() and not str(s.source).startswith(("rtsp://","http://","https://"))
+        s.native_fps=25  # will be updated once connected
         threading.Thread(target=s._run,daemon=True).start()
     def _run(s):
         while s.running:
@@ -123,17 +181,18 @@ class CameraFeed:
             cap=cv2.VideoCapture(src)
             if not cap.isOpened():s.connected=False;time.sleep(5);continue
             s.connected=True;cap.set(cv2.CAP_PROP_BUFFERSIZE,1)
-            fps=cap.get(cv2.CAP_PROP_FPS)if s.is_file else 0
+            fps=cap.get(cv2.CAP_PROP_FPS)
             if fps<=0 or fps>120:fps=25
+            s.native_fps=fps
             delay=1.0/fps if s.is_file else 0
-            print(f"[{s.id}] Connected: {s.name}"+( f" (file {fps:.0f}fps)"if s.is_file else""))
+            print(f"[{s.id}] Connected: {s.name} ({fps:.0f}fps{'  file' if s.is_file else ''})")
             while s.running:
                 ok,f=cap.read()
                 if not ok:
                     if s.is_file:cap.set(cv2.CAP_PROP_POS_FRAMES,0);continue
                     s.connected=False;break
                 with s.lock:s.frame=f
-                if s.is_file:time.sleep(delay)
+                if s.is_file:time.sleep(delay)  # file: pace at native FPS
             cap.release()
     def get_frame(s):
         with s.lock:return s.frame.copy()if s.frame is not None else None
@@ -173,7 +232,7 @@ gpu_monitor=GPUMonitor()
 # ===============================================================================
 class VLMAnalyzer:
     def __init__(s):
-        s.cameras={};s.sse_queues=[];s.sse_lock=threading.Lock();s.running=True
+        s.cameras={};s.sse_queues=[];s.sse_lock=threading.Lock();s.running=True;s.paused=False
         s.prev_caption={};s.prev_gray={};s.no_change_count={};s.focus_cam=None;s.frames_per_cam=3;s.cur_frame=0
         threading.Thread(target=s._loop,daemon=True).start()
     def set_cameras(s,d):s.cameras=d
@@ -243,7 +302,12 @@ class VLMAnalyzer:
                       "Here is my analysis","Here is the analysis","Scene analysis:",
                       "Security analysis:","Scene description:","Summary: ",
                       "An outdoor ","A view of ","Looking at ","We can see ",
-                      "What is happening? ","Observation: "]:
+                      "What is happening? ","Observation: ",
+                      "The updated image:.","The updated image:","Updated image:",
+                      "The image:.","Image analysis:","Scene:",
+                      "A description of the scene:.","A description of the scene:",
+                      "A description of the scene","Description of the scene:",
+                      "Description:","Here is a description"]:
                 if t.lower().startswith(p.lower()):t=t[len(p):].strip();changed=True
         # Remove leftover quotes and colons at start
         t=re.sub(r'^["\':.\s]+','',t)
@@ -259,96 +323,106 @@ class VLMAnalyzer:
         if st.get("motion_enabled","true")=="true":
             nc=s.no_change_count.get(cam.id,0)
             if mp<ms and nc>0 and nc<5:s.no_change_count[cam.id]=nc+1;return
-        isz=sint(st.get("inference_size","448"),448);h,w=frame.shape[:2];sc=isz/max(h,w)
-        sm=cv2.resize(frame,(int(w*sc),int(h*sc)),interpolation=cv2.INTER_AREA)if sc<1 else frame
-        _,jpg=cv2.imencode(".jpg",sm,[cv2.IMWRITE_JPEG_QUALITY,JPEG_QUALITY])
-        b64=base64.b64encode(jpg.tobytes()).decode();thumb=cam.thumbnail(frame)
         ts=datetime.now();iid=f"{cam.id}_{int(ts.timestamp()*1000)}"
-        bp=st.get("prompt",DEFAULTS["prompt"]);prev=s.prev_caption.get(cam.id,"")
-        ctx=f"{bp}\nPrevious: \"{prev}\"\nWhat changed? If nothing, say \"No change.\""if prev else bp
+        thumb=cam.thumbnail(frame)
+        # Send highest quality image to VLM
+        h,w=frame.shape[:2]
+        isz=sint(st.get("inference_size","640"),640)
+        sc=isz/max(h,w)
+        sm=cv2.resize(frame,(int(w*sc),int(h*sc)),interpolation=cv2.INTER_AREA) if sc<1 else frame
+        _,jpg=cv2.imencode(".jpg",sm,[cv2.IMWRITE_JPEG_QUALITY,92])
+        b64=base64.b64encode(jpg.tobytes()).decode()
+        bp=st.get("prompt",DEFAULTS["prompt"])
+        prev=s.prev_caption.get(cam.id,"")
+        ctx=bp if not prev else f"{bp}\nPrevious: \"{prev}\""
         print(f"[{cam.name}] motion={mp:.1f}% analyzing...")
         s._broadcast({"type":"stream_start","camera_id":cam.id,"item_id":iid,"camera_name":cam.name,"time":ts.strftime("%H:%M:%S"),"thumb":thumb,"motion":round(mp,1)})
         caption=""
         model=st.get("model","gemma3:4b")
         base_url=st.get("ollama_url",DEFAULTS["ollama_url"]).replace("/api/generate","").replace("/api/chat","").rstrip("/")
-        opts={"temperature":0.2,"num_predict":sint(st.get("max_tokens","200"),200)}
         try:
-            # Use OpenAI-compatible endpoint (stable across Ollama versions)
             r=req.post(f"{base_url}/v1/chat/completions",json={
                 "model":model,
                 "messages":[{"role":"user","content":[
                     {"type":"text","text":ctx},
                     {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
                 ]}],
-                "stream":True,
-                "max_tokens":sint(st.get("max_tokens","200"),200),
-                "temperature":0.2,
+                "stream":True,"max_tokens":sint(st.get("max_tokens","150"),150),"temperature":0.2,
             },headers={"Content-Type":"application/json"},stream=True,timeout=120)
             if r.status_code>=400:
                 try:err=r.json().get("error",{});emsg=err.get("message","") if isinstance(err,dict) else str(err)
                 except:emsg=r.text[:300]
-                print(f"  [API] /v1/chat/completions error ({r.status_code}): {emsg}")
-                # Fallback to native /api/chat
-                r=req.post(f"{base_url}/api/chat",json={"model":model,"messages":[{"role":"user","content":ctx,"images":[b64]}],"stream":True,"keep_alive":"30m","options":opts},stream=True,timeout=120)
-                if r.status_code>=400:
-                    try:err2=r.json().get("error","")
-                    except:err2=r.text[:200]
-                    print(f"  [API] /api/chat fallback error ({r.status_code}): {err2}")
+                print(f"  [API] error ({r.status_code}): {emsg}")
+                r=req.post(f"{base_url}/api/chat",json={"model":model,"messages":[{"role":"user","content":ctx,"images":[b64]}],"stream":True,"keep_alive":"30m","options":{"temperature":0.2,"num_predict":sint(st.get("max_tokens","150"),150)}},stream=True,timeout=120)
             r.raise_for_status()
             thinking="";content_started=False
             for line in r.iter_lines():
                 if not s.running:break
                 if not line:continue
                 line_str=line.decode("utf-8",errors="ignore") if isinstance(line,bytes) else line
-                # Skip SSE prefix
                 if line_str.startswith("data: "):line_str=line_str[6:]
                 if line_str.strip()=="[DONE]":break
                 try:
                     chunk=json.loads(line_str)
-                    # OpenAI format: choices[0].delta.content
                     tk=""
                     if "choices" in chunk:
                         delta=chunk["choices"][0].get("delta",{})
                         tk=delta.get("content","") or ""
                     else:
-                        # Native Ollama format
                         tk=chunk.get("response","") or chunk.get("message",{}).get("content","") or ""
                     th=chunk.get("message",{}).get("thinking","") or chunk.get("thinking","") or ""
-                    if th:thinking+=th;continue  # collect thinking silently
+                    if th:thinking+=th;continue
                     if tk:
-                        # Skip if this looks like thinking leaked into content
                         if not content_started:
                             test=(caption+tk).lower()
-                            if any(m in test for m in ['analyze the','thinking process','goal:','output format','required output','step 1','**analyze']):
-                                caption+=tk;continue  # collect but don't broadcast
-                            content_started=True
-                            caption=tk  # reset, discard any preamble
-                        else:
-                            caption+=tk
+                            if any(m in test for m in ["analyze the","thinking process","goal:","output format","step 1","**analyze"]):
+                                caption+=tk;continue
+                            content_started=True;caption=tk
+                        else:caption+=tk
                         s._broadcast({"type":"stream_token","item_id":iid,"text":s._clean(caption,bp)})
                 except:continue
-            # If model only produced thinking, use it
             if not caption.strip() and thinking.strip():caption=thinking
         except Exception as e:caption=f"Error: {e}"
-        caption=s._clean(caption.strip(),bp)or"(no response)"
+        caption=s._clean(caption.strip(),bp) or "(no response)"
         no_chg=caption.lower().strip().startswith("no change")
         if no_chg:s.no_change_count[cam.id]=s.no_change_count.get(cam.id,0)+1
         else:s.no_change_count[cam.id]=0;s.prev_caption[cam.id]=caption
         if cam.id not in s.prev_caption:s.prev_caption[cam.id]=caption
-        kws=json.loads(st.get("alert_keywords","[]"));triggered=[k for k in kws if k.lower()in caption.lower()];is_alert=len(triggered)>0
+        kws=json.loads(st.get("alert_keywords","[]"))
+        cap_low=caption.lower();triggered=[]
+        for k in kws:
+            kl=k.lower()
+            if kl not in cap_low:continue
+            pos=0;found_positive=False
+            while True:
+                idx=cap_low.find(kl,pos)
+                if idx<0:break
+                window=cap_low[max(0,idx-50):idx]
+                if not _NEG_RE.search(window):found_positive=True;break
+                pos=idx+1
+            if found_positive:triggered.append(k)
+        is_alert=len(triggered)>0
         snap=""
         if is_alert or st.get("snapshot_on_every","false")=="true":
             dd=os.path.join(SNAPSHOT_DIR,ts.strftime("%Y-%m-%d"));os.makedirs(dd,exist_ok=True)
             sn=f"{cam.id}_{ts.strftime('%H%M%S')}.jpg";snap=os.path.join(dd,sn);cv2.imwrite(snap,frame,[cv2.IMWRITE_JPEG_QUALITY,sint(st.get("snapshot_quality","90"),90)])
         if not no_chg or is_alert:save_observation({"id":iid,"camera_id":cam.id,"camera_name":cam.name,"timestamp":ts.isoformat(),"text":caption,"is_alert":int(is_alert),"alert_keywords":triggered,"snapshot_path":snap,"thumb_b64":thumb})
-        s._broadcast({"type":"feed_item","item_id":iid,"camera_id":cam.id,"camera_name":cam.name,"time":ts.strftime("%H:%M:%S"),"text":caption,"thumb":thumb,"is_alert":is_alert,"alert_keywords":triggered,"no_change":no_chg,"motion":round(mp,1),"snapshot":snap.replace("\\","/")if snap else""})
+        s._broadcast({"type":"feed_item","item_id":iid,"camera_id":cam.id,"camera_name":cam.name,"time":ts.strftime("%H:%M:%S"),
+            "text":caption,"thumb":thumb,"is_alert":is_alert,"alert_keywords":triggered,
+            "no_change":no_chg,"motion":round(mp,1),"snapshot":snap.replace("\\","/") if snap else""})
         if is_alert and st.get("telegram_on_alert","true")=="true":threading.Thread(target=send_telegram,args=(f"ALERT {cam.name} {ts.strftime('%H:%M:%S')}\n{caption}\nKeywords: {', '.join(triggered)}",snap),daemon=True).start()
-        elif st.get("telegram_on_all","false")=="true"and not no_chg:threading.Thread(target=send_telegram,args=(f"{cam.name} {ts.strftime('%H:%M:%S')}\n{caption}",),daemon=True).start()
+        elif st.get("telegram_on_all","false")=="true" and not no_chg:threading.Thread(target=send_telegram,args=(f"{cam.name} {ts.strftime('%H:%M:%S')}\n{caption}",),daemon=True).start()
     def _loop(s):
         s.last_analyzed={}   # cam_id -> timestamp
         s.analysis_times={}  # cam_id -> last duration in seconds
         s.load_warned=False
         while s.running:
+            # Paused - still broadcast GPU stats but skip analysis
+            if s.paused:
+                gpu=gpu_monitor.to_dict()
+                s._broadcast({"type":"gpu","data":gpu,"paused":True,"rotation":{"current":"Paused","total_cameras":len([c for c in s.cameras.values() if c.connected]),"cycle_time":0,"focus":s.focus_cam}})
+                time.sleep(1);continue
+
             cams=list(s.cameras.values())
             if not cams:time.sleep(1);continue
 
@@ -404,7 +478,7 @@ class VLMAnalyzer:
             else:time.sleep(2)
             st=get_all_settings();time.sleep(max(0.2,sfloat(st.get("analysis_interval","0.5"),0.5)))
     def subscribe(s):
-        q=Queue(maxsize=100)
+        q=Queue(maxsize=20)  # small queue prevents memory buildup
         with s.sse_lock:s.sse_queues.append(q)
         return q
     def unsubscribe(s,q):
@@ -421,16 +495,14 @@ def start_cameras():
     analyzer.set_cameras(feeds)
 
 def add_single_camera(cam_dict):
-    """Add one camera without disrupting others."""
     global feeds
     feeds[cam_dict["id"]]=CameraFeed(cam_dict)
-    analyzer.set_cameras(feeds)
+    analyzer.set_cameras(feeds);invalidate_cameras()
 
 def remove_single_camera(cid):
-    """Remove one camera without disrupting others."""
     global feeds
     if cid in feeds:feeds[cid].stop();del feeds[cid]
-    analyzer.set_cameras(feeds)
+    analyzer.set_cameras(feeds);invalidate_cameras()
 
 start_cameras()
 
@@ -582,17 +654,23 @@ async def video_feed(cam_id:str):
     cam=feeds.get(cam_id)
     if not cam:return Response(status_code=404)
     def resized():
-        interval=1.0/STREAM_FPS
+        # Stream at native FPS - only reduce resolution for bandwidth
+        n_cams=max(1,len(feeds))
+        width=MJPEG_WIDTH if n_cams<=2 else 480 if n_cams<=4 else 380
+        quality=JPEG_QUALITY if n_cams<=3 else 50 if n_cams<=6 else 40
+        fps=min(cam.native_fps,STREAM_FPS)  # cap at STREAM_FPS but never below native
+        interval=1.0/fps
+        last_frame_id=None
         while cam.running:
             f=cam.get_frame()
             if f is None:
-                b=np.zeros((int(MJPEG_WIDTH*9/16),MJPEG_WIDTH,3),dtype=np.uint8)
+                b=np.zeros((int(width*9/16),width,3),dtype=np.uint8)
                 _,jpg=cv2.imencode(".jpg",b)
             else:
                 h,w=f.shape[:2]
-                if w>MJPEG_WIDTH:
-                    sc=MJPEG_WIDTH/w;f=cv2.resize(f,(MJPEG_WIDTH,int(h*sc)),interpolation=cv2.INTER_AREA)
-                _,jpg=cv2.imencode(".jpg",f,[cv2.IMWRITE_JPEG_QUALITY,JPEG_QUALITY])
+                if w>width:
+                    sc=width/w;f=cv2.resize(f,(width,int(h*sc)),interpolation=cv2.INTER_AREA)
+                _,jpg=cv2.imencode(".jpg",f,[cv2.IMWRITE_JPEG_QUALITY,quality])
             yield b"--frame\r\nContent-Type:image/jpeg\r\n\r\n"+jpg.tobytes()+b"\r\n"
             time.sleep(interval)
     return StreamingResponse(resized(),media_type="multipart/x-mixed-replace;boundary=frame")
@@ -605,13 +683,15 @@ async def sse_events():
         try:
             while True:
                 try:
-                    msg=await asyncio.wait_for(loop.run_in_executor(None,lambda:q.get(timeout=2)),timeout=3)
+                    msg=await asyncio.wait_for(loop.run_in_executor(None,lambda:q.get(timeout=0.5)),timeout=1)
                     yield f"data:{json.dumps(msg)}\n\n"
                 except(Empty,asyncio.TimeoutError):
                     yield ":\n\n"
-        except asyncio.CancelledError:analyzer.unsubscribe(q)
-        except GeneratorExit:analyzer.unsubscribe(q)
-    return StreamingResponse(gen(),media_type="text/event-stream",headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
+                await asyncio.sleep(0)  # yield to event loop
+        except asyncio.CancelledError:pass
+        except GeneratorExit:pass
+        finally:analyzer.unsubscribe(q)
+    return StreamingResponse(gen(),media_type="text/event-stream",headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no","Connection":"keep-alive"})
 
 @app.get("/snapshot/{file_path:path}")
 async def snapshot_file(file_path:str):
@@ -674,6 +754,17 @@ async def get_focus():return{"focus":analyzer.focus_cam}
 @api.post("/focus")
 async def set_focus(req:Request):
     d=await req.json();analyzer.set_focus(d.get("camera_id"));return{"ok":True}
+
+@api.get("/analysis-status")
+async def analysis_status():return{"paused":analyzer.paused}
+
+@api.post("/pause")
+async def pause_analysis():
+    analyzer.paused=True;print("[Analysis] Paused");return{"ok":True,"paused":True}
+
+@api.post("/resume")
+async def resume_analysis():
+    analyzer.paused=False;print("[Analysis] Resumed");return{"ok":True,"paused":False}
 
 # -- GPU -----------------------------------------------------------------------
 @api.get("/gpu")

@@ -3,272 +3,733 @@
 <title>Mevin | Camera Monitor</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{
-  color-scheme:dark;
-  --bg:#0b0c0f;
-  --panel:#111318;
-  --panel2:#171a20;
-  --panel3:#1e222a;
-  --line:rgba(255,255,255,.08);
-  --line2:rgba(255,255,255,.14);
-  --text:#f5f7fb;
-  --muted:#a8b0bd;
-  --soft:#6f7887;
-  --blue:#0a84ff;
-  --blue2:#5aaeff;
-  --blueSoft:rgba(10,132,255,.15);
-  --red:#ff0000;
-  --redSoft:rgba(255,0,0,.13);
-  --green:#32d74b;
-  --orange:#ff9f0a;
-  --yellow:#ffd60a;
-  --radius:18px;
-  --radius2:24px;
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;
-  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
-}
-html,body{height:100vh;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-button,input,textarea{font-family:inherit}button{border:0;background:none;color:inherit;cursor:pointer}input,textarea{outline:none}svg{display:block}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:999px}::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24)}
-.topnav{height:60px;background:#101217;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 28px;flex-shrink:0;position:relative;z-index:20}.topnav-brand{font-size:19px;font-weight:720;letter-spacing:-.04em;color:#fff;margin-right:34px;text-transform:none}.topnav-brand::before{display:none!important;content:none!important}.topnav-links{display:flex;align-items:center;gap:4px;padding:4px;border:1px solid var(--line);background:#151820;border-radius:999px}.topnav-link{height:34px;padding:0 15px;border-radius:999px;color:var(--soft);font-size:13px;font-weight:650;letter-spacing:-.01em;transition:background .14s,color .14s}.topnav-link:hover{background:#20242d;color:#dfe5ee}.topnav-link.on{background:#292e38;color:#fff}.topnav-right{margin-left:auto;display:flex;align-items:center;gap:12px}.clk{font:600 12px var(--mono);color:var(--soft)}.abadge{display:none;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:3px 8px}
-.gpu-strip{height:36px;background:#0d0f13;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 28px;flex-shrink:0;overflow:hidden}.gpu-k{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--soft);text-transform:uppercase}.gpu-v,.gpu-focus{font:600 11px var(--mono);color:var(--muted)}.gpu-v.w{color:var(--orange)}.gpu-v.h{color:var(--red)}.gpu-meter{width:70px;height:5px;border-radius:999px;background:#242832;overflow:hidden}.gpu-fill{height:100%;border-radius:999px;transition:width .35s linear}.gpu-focus{margin-left:auto;color:var(--soft);white-space:nowrap;text-transform:none;letter-spacing:0}
-.pg{display:none;flex:1;overflow:hidden}.pg.on{display:flex;flex-direction:column}.main{display:flex;flex-direction:column;height:calc(100vh - 96px);min-height:0}.sec-header{padding:24px 28px 10px;flex-shrink:0}.sec-header h2{font-size:24px;font-weight:760;letter-spacing:-.04em;margin-bottom:4px}.sec-header p{font-size:14px;color:var(--soft)}
-.cam-area{padding:22px 28px 14px;flex-shrink:0}.cam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.cam-card{position:relative;overflow:hidden;border:1px solid var(--line);background:#111318;border-radius:24px;transition:transform .16s,border-color .16s,background .16s;content-visibility:auto;contain-intrinsic-size:300px 170px}.cam-card:hover{transform:translateY(-1px);border-color:var(--line2);background:#171a20}.cam-card.focused{border-color:rgba(10,132,255,.65);box-shadow:0 0 0 1px rgba(10,132,255,.18)}.cam-card.focused::after{content:'Selected';position:absolute;top:12px;right:12px;z-index:3;background:var(--blue);color:#fff;border-radius:999px;padding:5px 10px;font-size:10px;font-weight:800;letter-spacing:-.01em}.cam-card img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#050608}.cam-top{position:absolute;top:0;left:0;right:0;padding:12px;display:flex;justify-content:space-between;z-index:2}.cam-bot{position:absolute;left:0;right:0;bottom:0;padding:48px 16px 16px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.78));display:flex;justify-content:space-between;align-items:flex-end}.cam-label{font-size:15px;font-weight:700;color:#fff;letter-spacing:-.02em}.cam-live{display:flex;align-items:center;gap:6px;background:rgba(15,17,22,.82);border:1px solid rgba(255,255,255,.13);color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:5px 10px;text-transform:none;letter-spacing:.01em}.cam-live .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}.cam-actions{display:flex;gap:6px;opacity:0;transition:opacity .12s}.cam-card:hover .cam-actions{opacity:1}.cam-btn{width:34px;height:34px;border-radius:999px;background:rgba(15,17,22,.82);border:1px solid rgba(255,255,255,.13);color:rgba(255,255,255,.78);display:flex;align-items:center;justify-content:center;transition:background .12s,border-color .12s,color .12s}.cam-btn:hover,.cam-btn.fon{background:rgba(10,132,255,.24);border-color:rgba(10,132,255,.5);color:#fff}.cam-btn.del:hover{background:rgba(255,0,0,.22);border-color:rgba(255,0,0,.55);color:#fff}.cam-btn svg{width:15px;height:15px}.analyzing{position:absolute;top:12px;right:12px;z-index:4;background:var(--orange);color:#111;font-size:10px;font-weight:800;border-radius:999px;padding:5px 10px;display:none;animation:none}
-.quick-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}.qa-btn,.btn{border-radius:999px;font-size:13px;font-weight:680;letter-spacing:-.01em;transition:background .14s,border-color .14s,color .14s,transform .14s}.qa-btn{height:40px;padding:0 16px;display:flex;align-items:center;gap:8px;background:#151820;border:1px solid var(--line);color:var(--muted)}.qa-btn:hover{background:#20242d;border-color:var(--line2);color:#fff;transform:translateY(-1px)}.qa-btn.primary,.btn-blue{background:var(--blue);border-color:var(--blue);color:#fff}.qa-btn.primary:hover,.btn-blue:hover{background:#2994ff}.qa-btn svg{width:16px;height:16px}.btn{padding:9px 20px;border:1px solid transparent}.btn-ghost{background:#151820;border-color:var(--line);color:var(--muted)}.btn-ghost:hover{background:#20242d;border-color:var(--line2);color:#fff}.btn-red{background:rgba(255,0,0,.08);border-color:rgba(255,0,0,.3);color:#ff7777}.btn-red:hover{background:rgba(255,0,0,.16);border-color:var(--red);color:#fff}
-.tab-bar{display:inline-flex;align-self:flex-start;gap:3px;margin:0 28px;padding:5px;border:1px solid var(--line);background:#151820;border-radius:999px;flex-shrink:0}.tab-item{padding:9px 16px;border-radius:999px;font-size:13px;font-weight:680;color:var(--soft);border-bottom:0;cursor:pointer}.tab-item:hover{background:#20242d;color:#dfe5ee}.tab-item.on{background:#292e38;color:#fff;border:0}.feed-area{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;padding-top:12px}.feed-toolbar{padding:8px 28px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0}.search-box{flex:1;max-width:390px;position:relative}.search-box input{width:100%;height:42px;border-radius:999px;border:1px solid var(--line);background:#151820;color:var(--text);font-size:13px;padding:0 16px 0 40px}.search-box input::placeholder{color:var(--soft)}.search-box input:focus{border-color:rgba(10,132,255,.58);box-shadow:0 0 0 4px rgba(10,132,255,.12)}.search-box svg{position:absolute;left:15px;top:13px;width:15px;height:15px;color:var(--soft)}.feed-count,.tl-count{margin-left:auto;font:650 11px var(--mono);color:var(--soft);white-space:nowrap}.feed-scroll{flex:1;overflow-y:auto;padding:0 28px 28px;contain:layout paint style}
-.fi{display:flex;gap:16px;padding:14px;background:#12151b;border:1px solid var(--line);border-radius:22px;margin-bottom:10px;position:relative;transition:background .14s,border-color .14s,transform .14s;content-visibility:auto;contain-intrinsic-size:160px}.fi:hover{background:#171b22;border-color:var(--line2);transform:translateY(-1px)}.fi.alert,.fi.streaming{border-left:0!important;box-shadow:none!important}.fi.alert{background:#190f12;border-color:rgba(255,0,0,.48)}.fi.streaming{background:#17140e;border-color:rgba(255,159,10,.30)}.fi.pinned-fi{background:#17150d;border-color:rgba(255,214,10,.30)}.fi.nochg{opacity:.42}.fi.nochg:hover{opacity:.72}.fi-thumb{width:132px;min-width:132px;height:84px;border-radius:16px;overflow:hidden;background:#050608}.fi-thumb img{width:100%;height:100%;object-fit:cover}.fi-content{flex:1;min-width:0}.fi-row1{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}.fi-cam{font-size:14px;font-weight:760;color:#fff;letter-spacing:-.02em}.fi-time,.fi-motion{font:650 11px var(--mono);color:var(--soft);background:#1d212a;border:1px solid rgba(255,255,255,.05);border-radius:999px;padding:3px 8px}.fi-motion{margin-left:auto}.fi-badge{border-radius:999px;text-transform:none;letter-spacing:0;font-size:11px;font-weight:760;padding:4px 9px}.fi-badge.alert{background:var(--red);color:#fff}.fi-badge.changed{background:rgba(10,132,255,.18);color:#bddfff}.fi-badge.stable{background:#1d212a;color:var(--soft)}.fi-badge.pin{background:rgba(255,214,10,.15);color:#ffe686}.fi-kws{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}.fi-kw{font-size:11px;background:var(--red);color:#fff;padding:4px 10px;border-radius:999px;font-weight:760}.fi-text{font-size:15px;line-height:1.64;color:#f8fbff;background:#1b2029;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:13px 14px;letter-spacing:-.012em}.fi.alert .fi-text{background:rgba(255,0,0,.12);border-color:var(--red);color:#fff;box-shadow:0 0 0 1px rgba(255,0,0,.18) inset}.fi.streaming .fi-text{background:rgba(255,159,10,.10);border-color:rgba(255,159,10,.38);color:#fff}.fi.nochg .fi-text{background:#161a21;color:#a9b0bc;border-color:var(--line)}.fi-text .hl-people,.hl-people{color:#8fc8ff;font-weight:760}.fi-text .hl-rd,.hl-rd{color:#fff;background:var(--red);font-weight:800;border-radius:6px;padding:1px 6px}.fi-text .hl-ob,.hl-ob{color:#ffd391;font-weight:680}.fi-text .hl-ac,.hl-ac{color:#d5ddff;font-weight:620}.fi-text .hl-sf,.hl-sf{color:#a8f7bb;font-weight:650}.fi-btns{position:absolute;top:14px;right:14px;display:flex;gap:6px;opacity:0;transition:opacity .12s}.fi:hover .fi-btns{opacity:1}.fi-b{width:32px;height:32px;border-radius:999px;background:#1d212a;border:1px solid var(--line);color:var(--soft);display:flex;align-items:center;justify-content:center}.fi-b:hover,.fi-b.pinned{background:#2a303a;color:#fff;border-color:var(--line2)}.fi-b svg{width:14px;height:14px}.cur{display:inline-block;width:2px;height:14px;background:var(--orange);vertical-align:text-bottom;margin-left:2px}.empty-state{text-align:center;padding:68px 20px;color:var(--soft);font-size:14px}
-.scroll-page{flex:1;overflow-y:auto;padding:0 28px 40px}.guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:8px}.guide-card,.ss-card{background:#12151b;border:1px solid var(--line);border-radius:22px;padding:22px;transition:background .14s,border-color .14s;content-visibility:auto;contain-intrinsic-size:250px}.guide-card:hover,.ss-card:hover{background:#171b22;border-color:var(--line2)}.guide-accent,.ss-accent{display:none}.guide-card h3{font-size:16px;font-weight:760;margin-bottom:6px;display:flex;justify-content:space-between}.guide-card h3 .arr{color:var(--soft)}.guide-card p,.ss-desc{font-size:13px;color:var(--soft);line-height:1.5;margin-bottom:12px}.guide-card code{display:block;background:#0d0f13;border:1px solid var(--line);border-radius:14px;padding:12px 14px;font:600 11px/1.7 var(--mono);color:#b8f7e6;margin-bottom:10px;white-space:pre-wrap;word-break:break-all}.guide-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}.guide-tag{font-size:10px;background:#1d212a;color:var(--muted);padding:4px 10px;border-radius:999px;border:1px solid var(--line)}.guide-note{font-size:12px;color:var(--muted);padding:10px 12px;background:#0d0f13;border-radius:14px;border-left:0!important;line-height:1.5}.ss-card{margin-bottom:12px}.ss-title{font-size:17px;font-weight:760;margin-bottom:3px}.ss-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sf{display:flex;flex-direction:column;gap:5px}.sf.full{grid-column:1/-1}.sf-label{font-size:10px;font-weight:760;color:var(--soft);text-transform:uppercase;letter-spacing:.08em}.sf-input{height:42px;border-radius:14px;border:1px solid var(--line);background:#0d0f13;color:var(--text);font-size:13px;padding:0 13px}.sf-input:focus{border-color:rgba(10,132,255,.58);box-shadow:0 0 0 4px rgba(10,132,255,.11)}textarea.sf-input{height:auto;min-height:76px;padding:11px 13px;resize:vertical;font:600 12px/1.55 var(--mono)}.sf-row{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}.sf-chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer}.sf-chk input{accent-color:var(--blue);width:16px;height:16px}.cam-list-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}.cam-list-row span:first-child{flex:1;font-size:13px;font-weight:700}.scan-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0d0f13;border:1px solid var(--line);border-radius:14px;margin-bottom:6px}.scan-type{font-size:9px;font-weight:800;padding:4px 8px;border-radius:999px;text-transform:uppercase}.scan-type.usb{background:rgba(50,215,75,.12);color:#b6ffc2}.scan-type.rtsp{background:var(--blueSoft);color:#bcdfff}.scan-type.http{background:rgba(255,159,10,.13);color:#ffd391}.scan-name{font-size:13px;font-weight:700;flex:1}.scan-src{font:600 10px var(--mono);color:var(--soft);flex:2}.scan-add{font-size:11px;font-weight:760;color:#cfe8ff;padding:6px 12px;border-radius:999px;border:1px solid rgba(10,132,255,.3);background:rgba(10,132,255,.11)}.scan-add:hover{background:rgba(10,132,255,.18)}.gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}.gal-item{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);cursor:pointer}.gal-item:hover{border-color:var(--line2)}.gal-item img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}.gal-item .gal-label{position:absolute;left:0;right:0;bottom:0;padding:30px 10px 8px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.86));font-size:11px;color:#dce3ec;opacity:0}.gal-item:hover .gal-label{opacity:1}
-.tl-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;padding-top:12px;contain:layout paint style}.tl-toolbar{min-height:52px;padding:0 28px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0}.tl-toolbar span:first-child{font-size:14px;font-weight:760;color:#fff}.tl-range,.tl-zoom{display:flex;align-items:center;gap:3px;background:#151820;border:1px solid var(--line);border-radius:999px;padding:4px}.tl-range button,.tl-zoom-btn,.tl-reset{height:30px;border-radius:999px;color:var(--soft);font-size:12px;font-weight:760;padding:0 12px}.tl-range button:hover,.tl-zoom-btn:hover,.tl-reset:hover{background:#20242d;color:#fff}.tl-range button.on{background:#292e38;color:#fff}.tl-zoom{margin-left:auto;gap:8px}.tl-zoom-btn{width:30px;padding:0;font-size:18px}.tl-zoom-slider{width:118px;height:4px;accent-color:var(--blue)}.tl-zoom-value{min-width:42px;text-align:right;font:760 11px var(--mono);color:var(--soft)}.tl-container{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:10px 28px 20px;contain:layout paint}.tl-ruler{height:28px;border-bottom:1px solid var(--line);flex-shrink:0;position:relative;overflow:hidden}.tl-ruler-inner{position:relative;display:flex;min-width:100%}.tl-tick{position:absolute;height:28px;display:flex;align-items:center;padding-left:6px;font:650 10px var(--mono);color:#92a8c5;border-left:0}.tl-tracks{flex:1;overflow:auto;position:relative;overscroll-behavior:contain;scrollbar-gutter:stable;contain:layout paint}.tl-tracks-inner{min-width:100%;position:relative}.tl-lane{display:flex;align-items:center;height:52px;border-bottom:1px solid var(--line)}.tl-lane-label{width:122px;min-width:122px;height:100%;display:flex;align-items:center;position:sticky;left:0;z-index:2;padding:0 12px;background:#0b0c0f;border-right:1px solid var(--line);font-size:12px;font-weight:760;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tl-lane-track{flex:1;position:relative;height:100%;min-width:0;contain:layout paint}.tl-ev{position:absolute;top:18px;height:16px;min-width:8px;padding:0 6px;border-radius:999px;display:flex;align-items:center;justify-content:center;font:800 10px var(--mono);line-height:1;white-space:nowrap;text-overflow:clip;overflow:hidden;transition:none!important;will-change:auto;contain:layout paint;color:#fff;border:0}.tl-ev:hover{filter:brightness(1.16);z-index:5}.tl-ev.normal{background:#0a84ff}.tl-ev.alert{background:var(--red)}.tl-ev.pinned{background:#c89400}.tl-ev.is-cluster{box-shadow:0 0 0 3px rgba(255,255,255,.035)}.tl-ev.show-label{justify-content:flex-start;font-family:var(--font);font-size:11px}.tl-detail{flex-shrink:0;background:#111318;border-top:1px solid var(--line);padding:14px 28px;display:none;max-height:145px;overflow-y:auto}.tl-detail.show{display:block}.tl-detail-header{display:flex;align-items:center;gap:10px;margin-bottom:7px}.tl-detail-cam{font-size:14px;font-weight:760;color:#fff}.tl-detail-time{font:650 12px var(--mono);color:var(--soft)}.tl-detail-badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px;text-transform:none}.tl-detail-badge.alert{background:var(--red);color:#fff}.tl-detail-badge.pin{background:rgba(255,214,10,.15);color:#ffe686}.tl-detail-text{font-size:14px;line-height:1.55;color:var(--muted)}.tl-detail-kws{display:flex;gap:5px;margin-top:6px}.tl-detail-kw{font-size:10px;background:var(--red);color:#fff;padding:3px 8px;border-radius:999px}.tl-detail-list{display:grid;gap:8px;margin-top:10px}.tl-detail-row{padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:#171b22;font-size:13px;color:var(--muted)}.tl-detail-row strong{display:block;color:#fff;font-size:12px;margin-bottom:3px}.tl-empty{text-align:center;padding:44px;color:var(--soft);font-size:13px}
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.64);z-index:50;align-items:center;justify-content:center}.modal-bg.open{display:flex}.modal{width:420px;max-width:92vw;background:#12151b;border:1px solid var(--line2);border-radius:24px;padding:22px}.modal h3{font-size:18px;font-weight:760;margin-bottom:16px}.modal .sf{margin-bottom:12px}.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}.vf-list{max-height:320px;overflow-y:auto;margin-top:10px}.vf-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0d0f13;border:1px solid var(--line);border-radius:14px;margin-bottom:6px;cursor:pointer}.vf-item:hover{border-color:rgba(10,132,255,.45);background:#151d2a}.vf-icon{width:36px;height:36px;border-radius:12px;background:#1d212a;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--soft)}.vf-icon svg{width:18px;height:18px}.vf-name{font-size:13px;font-weight:760;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vf-meta{font-size:11px;color:var(--soft)}.vf-or{text-align:center;color:var(--soft);font-size:12px;margin:10px 0;font-weight:650}.scan-overlay{position:fixed;top:68px;right:20px;width:400px;max-height:70vh;background:#12151b;border:1px solid var(--line2);border-radius:22px;z-index:30;display:none;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35)}.scan-overlay.open{display:flex}.scan-overlay-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}.scan-overlay-head h3{font-size:15px;font-weight:760}.scan-overlay-body{flex:1;overflow-y:auto;padding:12px}.exp-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:40;cursor:pointer;align-items:center;justify-content:center}.exp-overlay.open{display:flex}.exp-overlay img{max-width:95%;max-height:95%;object-fit:contain;border-radius:12px}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#20242d;color:#fff;padding:12px 24px;border-radius:999px;font-size:13px;font-weight:760;display:none;z-index:100;border:1px solid var(--line2)}
-.setup-overlay{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;transition:opacity .2s}.setup-overlay.done{opacity:0;pointer-events:none}.setup-box{width:540px;max-width:92vw;background:#101217;border:1px solid var(--line);border-radius:28px;padding:28px}.setup-box h1{font-size:34px;font-weight:800;letter-spacing:-.05em;margin-bottom:4px}.setup-box .sub{color:var(--soft);font-size:15px;margin-bottom:28px}.setup-step{display:flex;gap:14px;padding:14px;background:#151820;border:1px solid var(--line);border-radius:18px;margin-bottom:8px}.setup-num{width:30px;height:30px;border-radius:10px;background:#20242d;color:var(--soft);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}.setup-num.on{background:var(--blue);color:#fff}.setup-body h3{font-size:14px;font-weight:760;margin-bottom:3px}.setup-body p{font-size:13px;color:var(--soft);line-height:1.5}.setup-body code{display:inline-block;background:#0d0f13;color:#b8f7e6;padding:3px 8px;border-radius:8px;font:650 12px var(--mono);margin-top:4px}.setup-input{width:100%;height:40px;background:#0d0f13;border:1px solid var(--line);border-radius:14px;color:var(--text);font-size:14px;padding:0 12px;margin-top:7px}.setup-input:focus{border-color:rgba(10,132,255,.58);box-shadow:0 0 0 4px rgba(10,132,255,.11)}.setup-cta{height:46px;padding:0 28px;background:var(--blue);color:#fff;font-size:15px;font-weight:760;border-radius:999px;margin-top:22px}.setup-cta:hover{background:#2994ff}.setup-skip{display:block;margin-top:10px;color:var(--soft);font-size:13px}.setup-skip:hover{color:#fff}
-[style*="border-left"]{border-left:0!important}.fi.alert::before,.fi.streaming::before,.guide-note::before{display:none!important;content:none!important}@media(max-width:900px){.topnav{padding:0 18px}.topnav-brand{margin-right:18px}.topnav-links{overflow-x:auto;max-width:60vw}.gpu-strip{padding:0 18px;overflow-x:auto}.cam-area,.feed-toolbar,.feed-scroll,.tl-toolbar,.tl-container,.tl-detail,.scroll-page{padding-left:18px;padding-right:18px}.tab-bar{margin-left:18px;margin-right:18px}.tl-zoom{width:100%;margin-left:0}.tl-zoom-slider{flex:1;width:auto}.tl-count{margin-left:auto}}@media(max-width:700px){.main{height:calc(100vh - 96px)}.cam-grid,.ss-grid,.guide-grid{grid-template-columns:1fr}.tab-bar{max-width:calc(100vw - 36px);overflow-x:auto}.fi{flex-direction:column}.fi-thumb{width:100%;height:auto;aspect-ratio:16/9}.topnav-right{display:none}.setup-box{padding:22px}.scan-overlay{left:12px;right:12px;top:68px;width:auto}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+:root{color-scheme:dark;--bg:#0b0c0f;--panel:#111318;--panel2:#171a20;--panel3:#1e222a;--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);--text:#f5f7fb;--muted:#a8b0bd;--soft:#6f7887;--blue:#0a84ff;--blue2:#5aaeff;--blueSoft:rgba(10,132,255,.15);--red:#ff0000;--redSoft:rgba(255,0,0,.13);--green:#32d74b;--orange:#ff9f0a;--yellow:#ffd60a;--font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;--mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+html,body{height:100vh;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}
+button,input,textarea{font-family:inherit}button{border:0;background:none;color:inherit;cursor:pointer}input,textarea{outline:none}svg{display:block}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:99px}
+
+/* Top */
+.tn{height:56px;background:#101217;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 24px;flex-shrink:0;z-index:20}
+.brand{font-size:18px;font-weight:720;letter-spacing:-.04em;color:#fff;margin-right:28px}
+.nl{display:flex;gap:3px;padding:3px;border:1px solid var(--line);background:#151820;border-radius:99px}
+.nb{height:32px;padding:0 14px;border-radius:99px;color:var(--soft);font-size:13px;font-weight:650;transition:all .12s}
+.nb:hover{background:#20242d;color:#dfe5ee}.nb.on{background:#292e38;color:#fff}
+.nr{margin-left:auto;display:flex;align-items:center;gap:12px}
+.clk{font:600 12px var(--mono);color:var(--soft)}
+.ab{display:none;background:var(--red);color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:3px 8px}
+
+/* GPU */
+.gpu{height:32px;background:#0d0f13;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 24px;flex-shrink:0}
+.gk{font-size:10px;letter-spacing:.1em;font-weight:800;color:var(--soft);text-transform:uppercase}
+.gv{font:600 11px var(--mono);color:var(--muted)}.gv.w{color:var(--orange)}.gv.h{color:var(--red)}
+.gm{width:60px;height:4px;border-radius:99px;background:#242832;overflow:hidden}
+.gf{height:100%;border-radius:99px;transition:width .4s}
+.gfo{margin-left:auto;font:600 11px var(--mono);color:var(--soft)}
+
+.pg{display:none;flex:1;overflow:hidden}.pg.on{display:flex;flex-direction:column}
+.main{display:flex;flex-direction:column;height:calc(100vh - 88px)}
+
+/* ===== SPLIT LAYOUT ===== */
+.split{display:flex;flex:1;overflow:hidden}
+
+/* Left: Feed panel */
+.feed-panel{width:380px;min-width:260px;max-width:600px;display:flex;flex-direction:column;background:#0d0f13;border-right:1px solid var(--line);flex-shrink:0;overflow:hidden}
+.feed-head{padding:14px 16px 10px;flex-shrink:0;display:flex;align-items:center;gap:10px}
+.feed-head h3{font-size:15px;font-weight:760;flex:1}
+.feed-head .fc{font:650 11px var(--mono);color:var(--soft)}
+.feed-tabs{display:flex;gap:2px;padding:0 12px 8px;flex-shrink:0}
+.ftab{padding:6px 12px;border-radius:99px;font-size:12px;font-weight:650;color:var(--soft);transition:all .12s}
+.ftab:hover{background:#1a1d24;color:var(--muted)}.ftab.on{background:#222730;color:#fff}
+.feed-search{padding:0 12px 10px;flex-shrink:0}
+.feed-search input{width:100%;height:36px;border-radius:99px;border:1px solid var(--line);background:#151820;color:var(--text);font-size:12px;padding:0 14px 0 34px}
+.feed-search input:focus{border-color:rgba(10,132,255,.5)}
+.feed-search svg{position:absolute;left:24px;top:9px;width:14px;height:14px;color:var(--soft)}
+.feed-search{position:relative}
+.feed-scroll{flex:1;overflow-y:auto;padding:6px 10px 16px}
+
+/* Drag handle */
+.splitter{width:6px;cursor:col-resize;background:transparent;flex-shrink:0;position:relative;z-index:10}
+.splitter:hover,.splitter.dragging{background:rgba(10,132,255,.3)}
+.splitter::after{content:'';position:absolute;top:50%;left:1px;width:4px;height:40px;transform:translateY(-50%);border-radius:4px;background:rgba(255,255,255,.1)}
+.splitter:hover::after{background:rgba(10,132,255,.5)}
+
+/* Right: Cameras + tabs */
+.cam-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.cam-main{flex:1;padding:12px 16px 8px;min-height:0;display:flex;flex-direction:column}
+.cam-main-view{position:relative;border-radius:20px;overflow:hidden;border:1px solid var(--line);background:#050608;cursor:pointer;flex:1;min-height:0}
+.cam-main-view img{width:100%;height:100%;object-fit:contain;background:#000}
+.cam-main-label{position:absolute;bottom:0;left:0;right:0;padding:32px 16px 12px;background:linear-gradient(transparent,rgba(0,0,0,.8));display:flex;justify-content:space-between;align-items:flex-end}
+.cam-main-name{font-size:16px;font-weight:720;color:#fff}
+.cam-main-live{display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.12);border-radius:99px;padding:4px 10px;font-size:10px;font-weight:800;color:#fff}
+.cam-main-live .dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
+.cam-main-az{position:absolute;top:12px;right:12px;background:var(--orange);color:#111;font-size:10px;font-weight:800;border-radius:99px;padding:4px 10px;display:none}
+
+/* Per-camera lifelines */
+.ll-strip{display:flex;gap:4px;padding:0 16px 4px;overflow-x:auto;flex-shrink:0}
+.ll-cam{position:relative;flex:1;min-width:100px;height:36px;border-radius:10px;background:#0a0c0f;border:1px solid var(--line);overflow:hidden;cursor:pointer;transition:border-color .15s}
+.ll-cam:hover{border-color:var(--line2)}
+.ll-cam canvas{width:100%;height:100%;display:block}
+.ll-cam-info{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:3px 8px;pointer-events:none}
+.ll-cam-name{font-size:9px;font-weight:760;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.04em}
+.ll-cam-lvl{font:800 9px var(--mono);padding:1px 5px;border-radius:99px;background:rgba(0,0,0,.5)}
+.ll-cam-lvl.low{color:#32d74b}.ll-cam-lvl.mild{color:#ffd60a}.ll-cam-lvl.elevated{color:var(--orange)}.ll-cam-lvl.high{color:var(--red)}
+
+/* Small camera strip */
+.cam-strip{display:flex;gap:6px;padding:0 16px 6px;overflow-x:auto;flex-shrink:0}
+.cam-sm{position:relative;width:130px;min-width:130px;border-radius:12px;overflow:hidden;border:1px solid var(--line);cursor:pointer;transition:all .14s;flex-shrink:0}
+.cam-sm:hover{border-color:var(--line2);transform:translateY(-1px)}
+.cam-sm.active{border-color:rgba(10,132,255,.6);box-shadow:0 0 0 1px rgba(10,132,255,.2)}
+.cam-sm img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#0a0c0f}
+.cam-sm img[src=""]{visibility:hidden}
+.cam-sm-label{position:absolute;bottom:0;left:0;right:0;padding:16px 8px 6px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:11px;font-weight:700;color:#fff}
+.cam-sm-acts{position:absolute;top:4px;right:4px;display:flex;gap:3px;opacity:0;transition:opacity .12s}
+.cam-sm:hover .cam-sm-acts{opacity:1}
+.cam-sm-btn{width:26px;height:26px;border-radius:99px;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.1);color:#ccc;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.cam-sm-btn:hover{background:rgba(10,132,255,.3);color:#fff}
+.cam-sm-btn.dl:hover{background:rgba(255,0,0,.3);color:#fff}
+.cam-sm-btn svg{width:12px;height:12px}
+
+/* Quick actions */
+.qa{display:flex;gap:5px;padding:2px 16px 6px;flex-wrap:wrap;flex-shrink:0}
+.qb{height:30px;padding:0 12px;border-radius:99px;font-size:11px;font-weight:660;display:flex;align-items:center;gap:5px;background:#151820;border:1px solid var(--line);color:var(--muted);transition:all .12s}
+.qb:hover{background:#20242d;border-color:var(--line2);color:#fff}
+.qb.pr{background:var(--blue);border-color:var(--blue);color:#fff}.qb.pr:hover{background:#2994ff}
+.qb svg{width:14px;height:14px}
+
+/* Bottom tabs area */
+.bot-tabs{display:flex;gap:2px;padding:0 16px;flex-shrink:0}
+.btab{padding:8px 14px;border-radius:12px 12px 0 0;font-size:12px;font-weight:660;color:var(--soft);border:1px solid transparent;border-bottom:0;transition:all .12s}
+.btab:hover{color:var(--muted)}.btab.on{background:var(--panel);border-color:var(--line);color:#fff}
+.bot-area{max-height:220px;overflow:hidden;display:flex;flex-direction:column;background:var(--panel);border-top:1px solid var(--line);flex-shrink:0}
+.bot-content{flex:1;overflow-y:auto;overflow-x:auto;padding:8px 16px}
+
+/* Timeline in bot area */
+.tl-bar{display:flex;gap:8px;padding:8px 16px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.tl-bar span{font-size:13px;font-weight:700;color:#fff}
+.tl-rng{display:flex;gap:2px;padding:3px;background:#151820;border:1px solid var(--line);border-radius:99px}
+.tl-rng button{height:26px;padding:0 10px;border-radius:99px;font-size:11px;font-weight:660;color:var(--soft);transition:all .12s}.tl-rng button:hover{background:#20242d;color:#fff}.tl-rng button.on{background:#292e38;color:#fff}
+.tl-zm{display:flex;gap:4px;align-items:center;margin-left:auto;padding:3px;background:#151820;border:1px solid var(--line);border-radius:99px}
+.tl-zm button{width:26px;height:26px;border-radius:99px;font-size:16px;font-weight:700;color:var(--soft);transition:all .12s}.tl-zm button:hover{background:#20242d;color:#fff}
+.tl-zm input[type=range]{width:90px;height:4px;accent-color:var(--blue)}
+.tl-zm-v{font:700 11px var(--mono);color:var(--soft);min-width:36px;text-align:right}
+.tl-cnt{font:650 11px var(--mono);color:var(--soft)}
+.tl-body{flex:1;overflow:auto;padding:0 16px 16px}
+.tl-ruler{height:22px;border-bottom:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;flex-shrink:0}
+.tl-ruler-inner{position:relative;min-width:100%}
+.tl-tick{position:absolute;height:22px;display:flex;align-items:center;padding-left:5px;font:650 9px var(--mono);color:rgba(255,255,255,.25);border-left:1px solid rgba(255,255,255,.05)}
+.tl-tracks{overflow:auto;position:relative}
+.tl-tracks-inner{min-width:100%;position:relative}
+.tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:4;pointer-events:none;opacity:.6}
+.tl-now::before{content:'NOW';position:absolute;top:4px;left:-14px;font:800 7px var(--mono);color:var(--red);letter-spacing:.06em}
+.tl-lane{display:flex;height:40px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s}
+.tl-lane:hover{background:rgba(255,255,255,.02)}
+.tl-lane:last-child{border-bottom:none}
+.tl-label{width:100px;min-width:100px;font-size:10px;font-weight:700;color:var(--muted);padding:0 10px;background:rgba(11,12,15,.95);border-right:1px solid rgba(255,255,255,.06);display:flex;align-items:center;position:sticky;left:0;z-index:3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;backdrop-filter:blur(4px)}
+.tl-label::before{content:'';width:3px;height:16px;border-radius:99px;margin-right:7px;flex-shrink:0}
+.tl-lane:nth-child(6n+1) .tl-label::before{background:var(--blue)}
+.tl-lane:nth-child(6n+2) .tl-label::before{background:var(--green)}
+.tl-lane:nth-child(6n+3) .tl-label::before{background:var(--orange)}
+.tl-lane:nth-child(6n+4) .tl-label::before{background:#c89400}
+.tl-lane:nth-child(6n+5) .tl-label::before{background:#8a82ff}
+.tl-lane:nth-child(6n+6) .tl-label::before{background:#ff6b8a}
+.tl-row{flex:1;position:relative;height:100%}
+.tl-ev{position:absolute;top:12px;height:16px;min-width:6px;padding:0 5px;border-radius:4px;font:800 9px var(--mono);color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;cursor:pointer;transition:all .1s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.tl-ev:hover{transform:translateY(-1px);filter:brightness(1.25);z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.tl-ev.n{background:rgba(10,132,255,.6)}.tl-ev.n:hover{background:var(--blue)}
+.tl-ev.a{background:var(--red);animation:alertPulse 2s ease-in-out infinite}
+.tl-ev.p{background:#c89400}
+.tl-ev.cl{box-shadow:0 1px 4px rgba(0,0,0,.4)}
+@keyframes alertPulse{0%,100%{box-shadow:0 1px 3px rgba(255,0,0,.3)}50%{box-shadow:0 1px 8px rgba(255,0,0,.6)}}
+.tl-empty{text-align:center;padding:40px;color:var(--soft);font-size:13px}
+/* Timeline tooltip */
+.tl-tip{position:fixed;background:#1e222a;border:1px solid var(--line2);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--text);max-width:240px;z-index:60;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.5);line-height:1.5;display:none}
+.tl-tip .tip-cam{font-weight:760;color:#fff;margin-bottom:2px}.tl-tip .tip-time{font:650 10px var(--mono);color:var(--soft)}.tl-tip .tip-text{margin-top:4px;color:var(--muted)}
+
+/* Feed items - compact for side panel */
+.fi{display:flex;gap:10px;padding:10px;background:#12151b;border:1px solid var(--line);border-radius:16px;margin-bottom:6px;position:relative;transition:all .14s}
+.fi:hover{background:#171b22;border-color:var(--line2)}
+.fi.alert{background:#190f12;border-color:rgba(255,0,0,.4)}
+.fi.streaming{background:#17140e;border-color:rgba(255,159,10,.25)}
+.fi.pinned-fi{background:#17150d;border-color:rgba(255,214,10,.25)}
+.fi.nochg{opacity:.35}.fi.nochg:hover{opacity:.6}
+.fi-thumb{width:80px;min-width:80px;height:54px;border-radius:10px;overflow:hidden;background:#050608;flex-shrink:0}.fi-thumb img{width:100%;height:100%;object-fit:cover}
+.fi-content{flex:1;min-width:0}
+.fi-row1{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+.fi-cam{font-size:12px;font-weight:760;color:#fff;letter-spacing:-.02em}
+.fi-time{font:650 10px var(--mono);color:var(--soft);background:#1d212a;border-radius:99px;padding:2px 6px}
+.fi-badge{border-radius:99px;font-size:10px;font-weight:760;padding:2px 7px}
+.fi-badge.alert{background:var(--red);color:#fff}.fi-badge.changed{background:rgba(10,132,255,.18);color:#bddfff}.fi-badge.stable{background:#1d212a;color:var(--soft)}.fi-badge.pin{background:rgba(255,214,10,.15);color:#ffe686}
+.fi-motion{font:650 10px var(--mono);color:var(--soft);margin-left:auto}
+.fi-kws{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px}.fi-kw{font-size:10px;background:var(--red);color:#fff;padding:2px 7px;border-radius:99px;font-weight:760}
+.fi-text{font-size:13px;line-height:1.55;color:var(--muted)}
+.fi-text .hl-people{color:#8fc8ff;font-weight:760}
+.fi-text .hl-rd{color:#fff;background:var(--red);font-weight:800;border-radius:4px;padding:0 4px}
+.fi-text .hl-ob{color:#ffd391;font-weight:680}
+.fi-text .hl-ac{color:#d5ddff;font-weight:620}
+.fi-text .hl-sf{color:#a8f7bb;font-weight:650}
+.fi-btns{position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .12s}.fi:hover .fi-btns{opacity:1}
+.fi-b{width:26px;height:26px;border-radius:99px;background:#1d212a;border:1px solid var(--line);color:var(--soft);display:flex;align-items:center;justify-content:center;transition:all .12s}.fi-b:hover,.fi-b.pinned{background:#2a303a;color:#fff}.fi-b svg{width:12px;height:12px}
+.cur{display:inline-block;width:2px;height:12px;background:var(--orange);vertical-align:text-bottom;margin-left:2px}
+.empty-state{text-align:center;padding:40px;color:var(--soft);font-size:13px}
+
+/* Other pages */
+.scroll-page{flex:1;overflow-y:auto;padding:0 28px 40px}
+.sec-header{padding:24px 28px 10px}.sec-header h2{font-size:24px;font-weight:760;letter-spacing:-.04em;margin-bottom:4px}.sec-header p{font-size:14px;color:var(--soft)}
+.gg{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:8px}
+.gc{background:#12151b;border:1px solid var(--line);border-radius:20px;padding:20px;transition:all .14s}.gc:hover{background:#171b22;border-color:var(--line2)}
+.gc h3{font-size:15px;font-weight:760;margin-bottom:5px}.gc p{font-size:13px;color:var(--soft);line-height:1.5;margin-bottom:10px}
+.gc code{display:block;background:#0d0f13;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:600 11px/1.7 var(--mono);color:#b8f7e6;margin-bottom:8px;white-space:pre-wrap;word-break:break-all}
+.gt{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}.gtg{font-size:10px;background:#1d212a;color:var(--muted);padding:3px 8px;border-radius:99px;border:1px solid var(--line)}
+.gn{font-size:12px;color:var(--muted);padding:8px 10px;background:#0d0f13;border-radius:10px;line-height:1.5}
+.glg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}.gli{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);cursor:pointer;transition:all .14s}.gli:hover{border-color:var(--line2)}.gli img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+.sc{background:#12151b;border:1px solid var(--line);border-radius:20px;padding:24px;margin-bottom:12px;transition:all .2s}.sc:hover{border-color:var(--line2);background:#141820}
+.stl{font-size:17px;font-weight:760;margin-bottom:2px;display:flex;align-items:center;gap:8px}.stl .sec-ico{width:28px;height:28px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.sds{font-size:13px;color:var(--soft);margin-bottom:14px;line-height:1.5}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sf{display:flex;flex-direction:column;gap:5px}.sfu{grid-column:1/-1}
+.sl{font-size:10px;font-weight:760;color:var(--soft);text-transform:uppercase;letter-spacing:.08em}
+.si{height:42px;border-radius:12px;border:1px solid var(--line);background:#0d0f13;color:var(--text);font-size:13px;padding:0 14px;transition:border-color .15s,box-shadow .15s}.si:focus{border-color:rgba(10,132,255,.5);box-shadow:0 0 0 3px rgba(10,132,255,.1)}textarea.si{height:auto;min-height:70px;padding:12px 14px;resize:vertical;font:600 12px/1.5 var(--mono)}
+.srw{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
+/* Toggle switch */
+.sch{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}.sch input{display:none}
+.tog{width:38px;height:22px;border-radius:99px;background:#2a2e38;position:relative;transition:background .2s;flex-shrink:0}.tog::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#666;transition:all .2s}
+.sch input:checked+.tog{background:var(--blue)}.sch input:checked+.tog::after{left:19px;background:#fff}
+.bt{padding:8px 18px;border-radius:99px;font-size:13px;font-weight:660;border:1px solid transparent;transition:all .15s}
+.bb{background:var(--blue);color:#fff}.bb:hover{background:#2994ff;box-shadow:0 4px 12px rgba(10,132,255,.3)}
+.bg{background:#151820;border-color:var(--line);color:var(--muted)}.bg:hover{background:#20242d;color:#fff}
+.br{background:rgba(255,0,0,.08);border-color:rgba(255,0,0,.3);color:#f77}.br:hover{background:rgba(255,0,0,.15);color:#fff}
+.clr{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.clr span:first-child{flex:1;font-weight:700;font-size:13px}
+/* Preset cards */
+.preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.preset-card{background:#0d0f13;border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .15s;text-align:left;display:flex;flex-direction:column;gap:4px}
+.preset-card:hover{border-color:rgba(10,132,255,.4);background:#111622;transform:translateY(-1px)}
+.preset-card.active{border-color:var(--blue);background:rgba(10,132,255,.08);box-shadow:0 0 0 1px rgba(10,132,255,.15)}
+.preset-card .pc-ico{font-size:18px;margin-bottom:2px}
+.preset-card .pc-name{font-size:12px;font-weight:760;color:#fff}
+.preset-card .pc-desc{font-size:10px;color:var(--soft);line-height:1.4}
+/* Settings page centering */
+.settings-wrap{max-width:680px;margin:0 auto;padding-top:4px}
+.settings-save{position:sticky;bottom:0;padding:16px 0 24px;background:linear-gradient(transparent,var(--bg) 30%);z-index:5;display:flex;gap:8px}
+.sci{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0d0f13;border:1px solid var(--line);border-radius:12px;margin-bottom:5px}
+.sct{font-size:9px;font-weight:800;padding:3px 7px;border-radius:99px;text-transform:uppercase}.sct.usb{background:rgba(50,215,75,.12);color:#b6ffc2}.sct.rtsp{background:var(--blueSoft);color:#bcdfff}.sct.http{background:rgba(255,159,10,.13);color:#ffd391}
+.scn{font-size:12px;font-weight:700;flex:1}.scs{font:600 10px var(--mono);color:var(--soft);flex:2}
+.sca{font-size:11px;font-weight:700;color:#cfe8ff;padding:5px 10px;border-radius:99px;border:1px solid rgba(10,132,255,.3);background:rgba(10,132,255,.1)}.sca:hover{background:rgba(10,132,255,.18)}
+
+/* Modals */
+.mb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;align-items:center;justify-content:center}.mb.op{display:flex}
+.md{width:420px;max-width:92vw;background:#12151b;border:1px solid var(--line2);border-radius:22px;padding:22px}.md h3{font-size:17px;font-weight:760;margin-bottom:16px}
+.mf{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.vfl{max-height:280px;overflow-y:auto;margin-top:8px}.vfi{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0d0f13;border:1px solid var(--line);border-radius:12px;margin-bottom:4px;cursor:pointer;transition:all .12s}.vfi:hover{border-color:rgba(10,132,255,.4);background:#151d2a}
+.vor{text-align:center;color:var(--soft);font-size:12px;margin:8px 0}
+.sco{position:fixed;top:60px;right:16px;width:380px;max-height:70vh;background:#12151b;border:1px solid var(--line2);border-radius:20px;z-index:30;display:none;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.4)}.sco.op{display:flex}
+.scoh{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.scoh h3{font-size:14px;font-weight:760}
+.scob{flex:1;overflow-y:auto;padding:10px}
+.xo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:40;cursor:pointer;align-items:center;justify-content:center}.xo.op{display:flex}.xo img{max-width:95%;max-height:95%;border-radius:10px}
+
+/* Event detail overlay */
+.ev-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);z-index:45;align-items:center;justify-content:center;padding:40px}.ev-ov.op{display:flex}
+.ev-box{width:900px;max-width:96vw;max-height:90vh;background:#12151b;border:1px solid var(--line2);border-radius:24px;overflow:hidden;display:flex;flex-direction:column}
+.ev-img{width:100%;background:#000;flex-shrink:0;position:relative}
+.ev-img img{width:100%;max-height:50vh;object-fit:contain;display:block}
+.ev-body{padding:20px 24px;overflow-y:auto;flex:1}
+.ev-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.ev-cam{font-size:18px;font-weight:760;color:#fff}
+.ev-time{font:650 13px var(--mono);color:var(--soft);background:#1d212a;padding:4px 10px;border-radius:99px}
+.ev-badges{display:flex;gap:6px}
+.ev-badges span{font-size:11px;font-weight:760;padding:4px 10px;border-radius:99px}
+.ev-kws{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.ev-kws span{font-size:12px;background:var(--red);color:#fff;padding:4px 12px;border-radius:99px;font-weight:760}
+.ev-text{font-size:16px;line-height:1.7;color:var(--muted)}
+.ev-text .hl-people{color:#8fc8ff;font-weight:760}.ev-text .hl-rd{color:#fff;background:var(--red);font-weight:800;border-radius:4px;padding:1px 5px}.ev-text .hl-ob{color:#ffd391;font-weight:680}.ev-text .hl-ac{color:#d5ddff;font-weight:620}.ev-text .hl-sf{color:#a8f7bb;font-weight:650}
+.ev-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:99px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;z-index:2}.ev-close:hover{background:rgba(255,255,255,.15)}
+.ev-mot{font:650 12px var(--mono);color:var(--soft);margin-left:auto}
+.to{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#20242d;color:#fff;padding:10px 22px;border-radius:99px;font-size:13px;font-weight:700;display:none;z-index:100;border:1px solid var(--line2)}
+
+/* Setup */
+.so{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;transition:opacity .2s}.so.dn{opacity:0;pointer-events:none}
+.sox{width:520px;max-width:92vw;background:#101217;border:1px solid var(--line);border-radius:24px;padding:24px}
+.sox h1{font-size:32px;font-weight:800;letter-spacing:-.05em;margin-bottom:4px}.sox .sub{color:var(--soft);font-size:14px;margin-bottom:24px}
+.ss{display:flex;gap:12px;padding:12px;background:#151820;border:1px solid var(--line);border-radius:16px;margin-bottom:6px}
+.sn{width:28px;height:28px;border-radius:8px;background:#20242d;color:var(--soft);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}.sn.on{background:var(--blue);color:#fff}
+.sb h3{font-size:13px;font-weight:760;margin-bottom:2px}.sb p{font-size:12px;color:var(--soft);line-height:1.5}
+.sb code{display:inline-block;background:#0d0f13;color:#b8f7e6;padding:2px 7px;border-radius:6px;font:650 11px var(--mono);margin-top:3px}
+.sinp{width:100%;height:36px;background:#0d0f13;border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:13px;padding:0 10px;margin-top:5px}.sinp:focus{border-color:rgba(10,132,255,.5)}
+.scta{height:42px;padding:0 24px;background:var(--blue);color:#fff;font-size:14px;font-weight:760;border-radius:99px;margin-top:18px}.scta:hover{background:#2994ff}
+.skip{display:block;margin-top:8px;color:var(--soft);font-size:12px}.skip:hover{color:#fff}
+
+@media(max-width:800px){.split{flex-direction:column}.feed-panel{width:100%!important;max-width:100%!important;height:40vh;border-right:0;border-bottom:1px solid var(--line)}.splitter{display:none}.cam-strip{flex-wrap:wrap}.sg{grid-template-columns:1fr}.gg{grid-template-columns:1fr}.preset-grid{grid-template-columns:repeat(2,1fr)}.settings-wrap{max-width:100%}}
 </style></head><body>
 
-<div class="setup-overlay" id="setupOv"><div class="setup-box">
-  <h1>Mevin</h1><p class="sub">Private camera monitoring, running locally on your machine.</p>
-  <div class="setup-step"><div class="setup-num on">1</div><div class="setup-body"><h3>Set up local runtime</h3><p>Install the runtime, then add a compatible vision package:</p><code>ollama pull gemma3:4b</code></div></div>
-  <div class="setup-step"><div class="setup-num on">2</div><div class="setup-body"><h3>Connect a camera</h3><p>Webcam works instantly (source: 0). For IP cameras, check Guides tab.</p></div></div>
-  <div class="setup-step"><div class="setup-num">3</div><div class="setup-body"><h3>Choose processor</h3><input class="setup-input" id="setupModel" value="gemma3:4b"></div></div>
-  <div class="setup-step"><div class="setup-num">4</div><div class="setup-body"><h3>Telegram alerts (optional)</h3><input class="setup-input" id="setupTG" placeholder="Bot token (skip if not ready)"></div></div>
-  <button class="setup-cta" onclick="finishSetup()">Start monitoring</button>
-  <button class="setup-skip" onclick="finishSetup()">Skip setup</button>
+<div class="so" id="sov"><div class="sox"><h1>Mevin</h1><p class="sub">Private camera monitoring, running locally.</p>
+<div class="ss"><div class="sn on">1</div><div class="sb"><h3>Install Ollama</h3><p>Download from ollama.com:</p><code>ollama pull gemma3:4b</code></div></div>
+<div class="ss"><div class="sn on">2</div><div class="sb"><h3>Connect camera</h3><p>Webcam: source 0. IP: check Guides.</p></div></div>
+<div class="ss"><div class="sn">3</div><div class="sb"><h3>Model</h3><input class="sinp" id="smod" value="gemma3:4b"></div></div>
+<div class="ss"><div class="sn">4</div><div class="sb"><h3>Telegram (optional)</h3><input class="sinp" id="stg" placeholder="Bot token"></div></div>
+<button class="scta" onclick="sD()">Start monitoring</button><button class="skip" onclick="sD()">Skip</button>
 </div></div>
 
-<div class="topnav">
-  <span class="topnav-brand">Mevin</span>
-  <div class="topnav-links">
-    <button class="topnav-link on" onclick="goNav('monitor',this)">Monitor</button>
-    <button class="topnav-link" onclick="goNav('guides',this)">Guides</button>
-    <button class="topnav-link" onclick="goNav('gallery',this)">Gallery</button>
-    <button class="topnav-link" onclick="goNav('settings',this)">Settings</button>
-  </div>
-  <div class="topnav-right"><span class="abadge" id="aB">0</span><span class="clk" id="clk"></span></div>
-</div>
-<div class="gpu-strip" id="gpuBar"><span class="gpu-k">GPU</span><span class="gpu-v" id="gN">-</span><span class="gpu-k">VRAM</span><span class="gpu-v" id="gV">-</span><div class="gpu-meter"><div class="gpu-fill" id="gVB"></div></div><span class="gpu-k">Temp</span><span class="gpu-v" id="gT">-</span><span class="gpu-k">Load</span><span class="gpu-v" id="gU">-</span><span class="gpu-focus" id="gF">Rotating</span></div>
+<div class="tn"><span class="brand">Mevin</span><div class="nl"><button class="nb on" onclick="go('m',this)">Monitor</button><button class="nb" onclick="go('g',this)">Guides</button><button class="nb" onclick="go('gl',this)">Gallery</button><button class="nb" onclick="go('s',this)">Settings</button></div><div class="nr"><span class="ab" id="aB">0</span><span class="clk" id="clk"></span></div></div>
+<div class="gpu" id="gpuB"><span class="gk">GPU</span><span class="gv" id="gN">-</span><span class="gk">VRAM</span><span class="gv" id="gV">-</span><div class="gm"><div class="gf" id="gVB"></div></div><span class="gk">Temp</span><span class="gv" id="gT">-</span><span class="gk">Load</span><span class="gv" id="gU">-</span><span class="gfo" id="gF">Rotating</span></div>
 
 <div class="main">
-<div class="pg on" id="pg-monitor"><div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-  <div class="cam-area"><div class="cam-grid" id="cG"></div>
-    <div class="quick-actions">
-      <button class="qa-btn" onclick="openAC()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg> Add camera</button>
-      <button class="qa-btn" onclick="openVF()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Open video file</button>
-      <button class="qa-btn primary" onclick="quickScan()" id="qScanBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> Discover cameras</button>
-      <button class="qa-btn" id="releaseFocusBtn" style="display:none;border-color:var(--blue);color:var(--blue)" onclick="releaseFocus()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg> Clear selection</button>
+<!-- MONITOR: Split Layout -->
+<div class="pg on" id="pg-m">
+<div class="split">
+  <!-- LEFT: Feed -->
+  <div class="feed-panel" id="feedPanel">
+    <div class="feed-head"><h3>Events</h3><span class="fc" id="fN">0</span></div>
+    <div class="feed-tabs"><button class="ftab on" data-t="f" onclick="fTab(this)">All</button><button class="ftab" data-t="al" onclick="fTab(this)">Alerts</button><button class="ftab" data-t="pn" onclick="fTab(this)">Pinned</button></div>
+    <div class="feed-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search..." id="sI" oninput="dSr()"></div>
+    <div class="feed-scroll" id="fS"><div class="empty-state" id="eS">Events appear once monitoring starts.</div></div>
+  </div>
+
+  <!-- DRAG HANDLE -->
+  <div class="splitter" id="splitter"></div>
+
+  <!-- RIGHT: Cameras + bottom -->
+  <div class="cam-panel">
+    <!-- Main camera -->
+    <div class="cam-main"><div class="cam-main-view" id="mainCam">
+      <img id="mainImg" src="about:blank"><div class="cam-main-label"><span class="cam-main-name" id="mainName">No camera</span><span class="cam-main-live"><span class="dot"></span>LIVE</span></div><div class="cam-main-az" id="mainAz">Checking</div>
+    </div></div>
+    <!-- Per-camera lifelines -->
+    <div class="ll-strip" id="llStrip"></div>
+    <!-- Camera strip -->
+    <div class="cam-strip" id="camStrip"></div>
+    <!-- Quick actions -->
+    <div class="qa"><button class="qb" onclick="oAC()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>Add</button><button class="qb" onclick="oVF()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Video</button><button class="qb pr" onclick="qSc()" id="qSB"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Scan</button><button class="qb" id="rfB" style="display:none;border-color:var(--blue);color:var(--blue)" onclick="rF()">Release Focus</button><button class="qb" id="paB" onclick="tPa()"><span id="paT">Pause</span></button></div>
+    <!-- Bottom tabs -->
+    <div class="bot-tabs"><button class="btab on" data-t="tl" onclick="bTab(this)">Timeline</button></div>
+    <div class="bot-area">
+      <div class="tl-bar"><span>Timeline</span><div class="tl-rng"><button class="on" onclick="lTL(3,this)">3h</button><button onclick="lTL(6,this)">6h</button><button onclick="lTL(12,this)">12h</button><button onclick="lTL(24,this)">24h</button></div><span class="tl-cnt" id="tC">0</span><div class="tl-zm"><button onclick="zTL(-1)">−</button><input type="range" min="1" max="12" step=".25" value="1" id="tlZ" oninput="sTLZ(this.value)"><button onclick="zTL(1)">+</button><span class="tl-zm-v" id="tlZP">100%</span><button onclick="rTLZ()" style="font-size:10px;padding:0 7px">Fit</button><button onclick="tlScrollToEvents()" style="font-size:10px;padding:0 7px;color:var(--blue)">⎯⊙</button></div></div>
+      <div class="bot-content" id="tCon"></div>
     </div>
   </div>
-  <div class="tab-bar"><span class="tab-item on" data-tab="feed" onclick="tabSwitch(this)">Events</span><span class="tab-item" data-tab="timeline" onclick="tabSwitch(this)">Timeline</span><span class="tab-item" data-tab="alerts" onclick="tabSwitch(this)">Alerts</span><span class="tab-item" data-tab="pinned" onclick="tabSwitch(this)">Pinned</span></div>
-  <div class="feed-area" id="feedPanel">
-    <div class="feed-toolbar"><div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search events..." id="sI" oninput="sF()"></div><span class="feed-count" id="fN">0</span></div>
-    <div class="feed-scroll" id="fS"><div class="empty-state" id="eS">Events will appear here once monitoring starts.</div></div>
-  </div>
-  <div class="tl-wrap" id="timelinePanel" style="display:none">
-    <div class="tl-toolbar"><span>Timeline</span><div class="tl-range"><button class="on" onclick="loadTL(3,this)">3h</button><button onclick="loadTL(6,this)">6h</button><button onclick="loadTL(12,this)">12h</button><button onclick="loadTL(24,this)">24h</button></div><div class="tl-zoom" aria-label="Timeline zoom controls"><button class="tl-zoom-btn" onclick="zoomTL(-1)" title="Zoom out">−</button><input id="tlZoom" class="tl-zoom-slider" type="range" min="1" max="12" step="0.25" value="1" oninput="setTLZoom(this.value)"><button class="tl-zoom-btn" onclick="zoomTL(1)" title="Zoom in">+</button><span class="tl-zoom-value" id="tlZoomPct">100%</span><button class="tl-reset" onclick="resetTLZoom()">Reset</button></div><span class="tl-count" id="tlCount">0 events</span></div>
-    <div class="tl-container" id="tlContainer"><div class="tl-empty">Loading...</div></div>
-    <div class="tl-detail" id="tlDetail"></div>
-  </div>
+</div>
+</div>
+
+<!-- GUIDES -->
+<div class="pg scroll-page" id="pg-g"><div class="sec-header"><h2>Camera setup</h2><p>Connection formats for common brands.</p></div><div class="gg">
+<div class="gc"><h3>Hikvision</h3><p>Most common cameras.</p><code>rtsp://admin:PASS@IP:554/Streaming/Channels/102</code><div class="gt"><span class="gtg">101=Main</span><span class="gtg">102=Sub</span></div></div>
+<div class="gc"><h3>Dahua</h3><p>Second largest.</p><code>rtsp://admin:PASS@IP:554/cam/realmonitor?channel=1&subtype=1</code></div>
+<div class="gc"><h3>Tapo</h3><code>rtsp://USER:PASS@IP:554/stream2</code></div>
+<div class="gc"><h3>Reolink</h3><code>rtsp://admin:PASS@IP:554/h264Preview_01_sub</code></div>
+<div class="gc"><h3>Phone</h3><code>http://PHONE_IP:8080/video</code><div class="gt"><span class="gtg">IP Webcam app</span></div></div>
+<div class="gc"><h3>USB</h3><code>0 (first)  1 (second)</code></div>
 </div></div>
 
-<div class="pg scroll-page" id="pg-guides"><div class="sec-header"><h2>Camera setup</h2><p>Connection formats for common camera brands.</p></div>
-<div class="guide-grid">
-<div class="guide-card"><div class="guide-accent" style="background:linear-gradient(90deg,#4c8dff,#6366f1)"></div><h3>Hikvision<span class="arr">></span></h3><p>Most common security cameras.</p><code>rtsp://admin:PASS@IP:554/Streaming/Channels/102</code><div class="guide-tags"><span class="guide-tag">101=Main</span><span class="guide-tag">102=Sub</span></div><div class="guide-note">Use sub stream (102) for faster results</div></div>
-<div class="guide-card"><div class="guide-accent" style="background:linear-gradient(90deg,#ec4899,#f43f5e)"></div><h3>Dahua / Imou<span class="arr">></span></h3><p>Second largest manufacturer.</p><code>rtsp://admin:PASS@IP:554/cam/realmonitor?channel=1&subtype=1</code><div class="guide-tags"><span class="guide-tag">subtype=0 Main</span><span class="guide-tag">subtype=1 Sub</span></div></div>
-<div class="guide-card"><div class="guide-accent" style="background:linear-gradient(90deg,#2dd4bf,#22c55e)"></div><h3>TP-Link Tapo<span class="arr">></span></h3><p>Budget smart cameras.</p><code>rtsp://USER:PASS@IP:554/stream2</code><div class="guide-tags"><span class="guide-tag">stream1=HD</span><span class="guide-tag">stream2=SD</span></div><div class="guide-note">Enable RTSP in Tapo app first</div></div>
-<div class="guide-card"><div class="guide-accent" style="background:linear-gradient(90deg,#f97316,#eab308)"></div><h3>Reolink<span class="arr">></span></h3><p>Great value NVR cameras.</p><code>rtsp://admin:PASS@IP:554/h264Preview_01_sub</code><div class="guide-tags"><span class="guide-tag">_main=HD</span><span class="guide-tag">_sub=SD</span></div></div>
-<div class="guide-card"><div class="guide-accent" style="background:linear-gradient(90deg,#8b5cf6,#a855f7)"></div><h3>Xiaomi / Yi<span class="arr">></span></h3><p>Needs custom firmware.</p><code>rtsp://IP:8554/unicast</code><div class="guide-tags"><span class="guide-tag">yi-hack</span></div><div class="guide-note">Stock firmware has no RTSP</div></div>
-<div class="guide-card"><div class="guide-accent" style="background:linear-gradient(90deg,#06b6d4,#3b82f6)"></div><h3>ONVIF<span class="arr">></span></h3><p>Universal, 90% of cameras.</p><code>rtsp://admin:PASS@IP:554/onvif1</code><div class="guide-tags"><span class="guide-tag">Profile S</span></div><div class="guide-note">Use ONVIF Device Manager to find URL</div></div>
-<div class="guide-card"><div class="guide-accent" style="background:linear-gradient(90deg,#22c55e,#84cc16)"></div><h3>Phone Camera<span class="arr">></span></h3><p>Android/iOS phone.</p><code>http://PHONE_IP:8080/video</code><div class="guide-tags"><span class="guide-tag">IP Webcam</span></div></div>
-<div class="guide-card"><div class="guide-accent" style="background:linear-gradient(90deg,#f43f5e,#fb923c)"></div><h3>USB Webcam<span class="arr">></span></h3><p>Built-in or external.</p><code>0  (first)   1  (second)</code><div class="guide-tags"><span class="guide-tag">Plug & Play</span></div></div>
-</div></div>
+<!-- GALLERY -->
+<div class="pg scroll-page" id="pg-gl"><div class="sec-header"><h2>Snapshots</h2></div><div id="galG" class="glg" style="margin-top:8px"></div></div>
 
-<div class="pg scroll-page" id="pg-gallery"><div class="sec-header"><h2>Saved snapshots</h2><p>Captures saved from alerts and manual snapshots.</p></div><div id="galG" class="gal-grid" style="margin-top:8px"></div></div>
-
-<div class="pg scroll-page" id="pg-settings"><div class="sec-header"><h2>Settings</h2><p>Configure cameras, alerts, processing, and integrations.</p></div>
-<div style="margin-top:8px;max-width:640px">
-<div class="ss-card"><div class="ss-accent" style="background:linear-gradient(90deg,#4c8dff,#6366f1)"></div><div class="ss-title">Video checks</div><div class="ss-desc">Local runtime and timing settings.</div><div class="ss-grid"><div class="sf"><span class="sf-label">Processor</span><input class="sf-input" id="s-model"></div><div class="sf"><span class="sf-label">Runtime URL</span><input class="sf-input" id="s-ollama_url"></div><div class="sf"><span class="sf-label">Response limit</span><input class="sf-input" id="s-max_tokens" type="number"></div><div class="sf"><span class="sf-label">Frame size</span><input class="sf-input" id="s-inference_size" type="number"></div><div class="sf"><span class="sf-label">Interval (sec)</span><input class="sf-input" id="s-analysis_interval" type="number" step="0.5"></div><div class="sf full"><span class="sf-label">Detection notes</span><textarea class="sf-input" id="s-prompt" rows="2"></textarea></div></div></div>
-<div class="ss-card"><div class="ss-accent" style="background:linear-gradient(90deg,#f97316,#eab308)"></div><div class="ss-title">Motion</div><div class="ss-desc">Skip checks when the scene is still.</div><div class="ss-grid"><div class="sf"><span class="sf-label">Sensitivity (%)</span><input class="sf-input" id="s-motion_sensitivity" type="number" step="0.1"></div></div><div class="sf-row"><label class="sf-chk"><input type="checkbox" id="s-motion_enabled"> Enabled</label></div></div>
-<div class="ss-card"><div class="ss-accent" style="background:linear-gradient(90deg,#ff5c5c,#f97316)"></div><div class="ss-title">Alert words</div><div class="ss-desc">Words that should trigger an alert.</div><div class="sf full"><textarea class="sf-input" id="s-alert_keywords" rows="2"></textarea></div></div>
-<div class="ss-card"><div class="ss-accent" style="background:linear-gradient(90deg,#2dd4bf,#22c55e)"></div><div class="ss-title">Telegram Alerts</div><div class="ss-desc">Only important alerts are sent.</div><div class="ss-grid"><div class="sf"><span class="sf-label">Bot Token</span><input class="sf-input" id="s-telegram_token" placeholder="From @BotFather"></div><div class="sf"><span class="sf-label">Chat ID</span><input class="sf-input" id="s-telegram_chat_id"></div><div class="sf"><span class="sf-label">Quiet Start</span><input class="sf-input" id="s-telegram_quiet_start" placeholder="23:00"></div><div class="sf"><span class="sf-label">Quiet End</span><input class="sf-input" id="s-telegram_quiet_end" placeholder="07:00"></div><div class="sf"><span class="sf-label">Min interval (sec)</span><input class="sf-input" id="s-telegram_min_interval" type="number"></div></div><div class="sf-row"><label class="sf-chk"><input type="checkbox" id="s-telegram_on_alert" checked> Send alerts</label><label class="sf-chk"><input type="checkbox" id="s-telegram_on_all"> All events</label><button class="btn btn-ghost" onclick="tgTest()">Send Test</button></div></div>
-<div class="ss-card"><div class="ss-accent" style="background:linear-gradient(90deg,#ec4899,#a855f7)"></div><div class="ss-title">Saved snapshots</div><div class="ss-desc">Saving behavior.</div><div class="ss-grid"><div class="sf"><span class="sf-label">Quality</span><input class="sf-input" id="s-snapshot_quality" type="number"></div></div><div class="sf-row"><label class="sf-chk"><input type="checkbox" id="s-snapshot_on_every"> Save every event</label></div></div>
-<div class="ss-card"><div class="ss-accent" style="background:linear-gradient(90deg,#64748b,#94a3b8)"></div><div class="ss-title">Feed</div><div class="ss-desc">Feed display settings.</div><div class="ss-grid"><div class="sf"><span class="sf-label">Max Items</span><input class="sf-input" id="s-feed_max_items" type="number"></div></div><div class="sf-row"><label class="sf-chk"><input type="checkbox" id="s-feed_show_stable"> Show stable</label></div></div>
-<div class="ss-card"><div class="ss-accent" style="background:linear-gradient(90deg,#3b82f6,#06b6d4)"></div><div class="ss-title">Cameras</div><div class="ss-desc">Manage cameras.</div><div id="cL"></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost" onclick="openAC()">+ Add</button><button class="btn btn-blue" onclick="startScan()" id="scanBtn">Scan</button></div><div id="scanR" style="margin-top:10px;display:none"><div id="scanSt" style="font-size:12px;color:var(--t3);margin-bottom:6px"></div><div id="scanL"></div></div></div>
-<div class="ss-card"><div class="ss-accent" style="background:linear-gradient(90deg,#ef4444,#dc2626)"></div><div class="ss-title">Data & Retention</div><div class="ss-desc">Auto-cleanup. Pinned items never deleted.</div>
-<div id="dataStats" style="display:flex;gap:20px;margin-bottom:14px;padding:12px 16px;background:var(--bg);border-radius:10px;border:1px solid var(--border)"></div>
-<div class="ss-grid"><div class="sf"><span class="sf-label">Keep days</span><input class="sf-input" id="s-retain_days" type="number"></div><div class="sf"><span class="sf-label">Max events</span><input class="sf-input" id="s-retain_max_obs" type="number"></div><div class="sf"><span class="sf-label">Max snapshots MB</span><input class="sf-input" id="s-retain_max_snap_mb" type="number"></div><div class="sf"><span class="sf-label">Strip thumbs after days</span><input class="sf-input" id="s-thumb_retain_days" type="number"></div><div class="sf"><span class="sf-label">Cleanup interval (min)</span><input class="sf-input" id="s-cleanup_interval_min" type="number"></div></div>
-<div class="sf-row" style="margin-top:10px"><button class="btn btn-ghost" onclick="runCleanup()">Run Cleanup Now</button><button class="btn btn-red" onclick="if(confirm('Clear ALL?'))fetch('/api/clear',{method:'POST'}).then(()=>{T('Cleared');loadDS()})">Clear All</button></div></div>
-<button class="btn btn-blue" style="margin-top:8px" onclick="saveS()">Save Settings</button>
+<!-- SETTINGS -->
+<div class="pg scroll-page" id="pg-s"><div class="sec-header" style="text-align:center"><h2>Settings</h2><p>Configure your monitoring system</p></div><div class="settings-wrap">
+<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(10,132,255,.12);color:var(--blue)">🧠</span>Model</div><div class="sds">Vision model and inference settings</div><div class="sg"><div class="sf"><span class="sl">Processor</span><input class="si" id="s-model" placeholder="gemma3:4b"></div><div class="sf"><span class="sl">URL</span><input class="si" id="s-ollama_url" placeholder="http://localhost:11434"></div><div class="sf"><span class="sl">Max Tokens</span><input class="si" id="s-max_tokens" type="number"></div><div class="sf"><span class="sl">Image Size</span><input class="si" id="s-inference_size" type="number"></div><div class="sf"><span class="sl">Interval (sec)</span><input class="si" id="s-analysis_interval" type="number" step="0.5"></div><div class="sf sfu"><span class="sl">Prompt</span><textarea class="si" id="s-prompt" rows="3"></textarea></div><div class="sf sfu"><span class="sl" style="margin-bottom:6px">Quick Presets</span><div class="preset-grid" id="promptPresets"></div></div></div></div>
+<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(50,215,75,.1);color:var(--green)">📡</span>Motion Detection</div><div class="sds">Skip analysis when nothing moves</div><div class="sg"><div class="sf"><span class="sl">Sensitivity threshold</span><input class="si" id="s-motion_sensitivity" type="number" step="0.1"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-motion_enabled"><span class="tog"></span> Enabled</label></div></div>
+<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(255,0,0,.1);color:var(--red)">🚨</span>Alert Keywords</div><div class="sds">Comma-separated words that trigger alerts</div><div class="sf sfu"><textarea class="si" id="s-alert_keywords" rows="2" placeholder="weapon, fire, intruder..."></textarea></div></div>
+<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(10,132,255,.12);color:#5aaeff">✈️</span>Telegram</div><div class="sds">Get notified on your phone</div><div class="sg"><div class="sf"><span class="sl">Bot Token</span><input class="si" id="s-telegram_token" placeholder="123456:ABC-DEF..."></div><div class="sf"><span class="sl">Chat ID</span><input class="si" id="s-telegram_chat_id" placeholder="12345678"></div><div class="sf"><span class="sl">Quiet Start</span><input class="si" id="s-telegram_quiet_start" placeholder="23:00"></div><div class="sf"><span class="sl">Quiet End</span><input class="si" id="s-telegram_quiet_end" placeholder="07:00"></div><div class="sf"><span class="sl">Min Interval (sec)</span><input class="si" id="s-telegram_min_interval" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-telegram_on_alert" checked><span class="tog"></span> Alerts only</label><label class="sch"><input type="checkbox" id="s-telegram_on_all"><span class="tog"></span> All events</label><button class="bt bg" onclick="tgT()">Test</button></div></div>
+<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(255,159,10,.1);color:var(--orange)">📸</span>Snapshots</div><div class="sds">Auto-capture frames on events</div><div class="sg"><div class="sf"><span class="sl">JPEG Quality (1-100)</span><input class="si" id="s-snapshot_quality" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-snapshot_on_every"><span class="tog"></span> Save on every event</label></div></div>
+<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(255,214,10,.1);color:var(--yellow)">📋</span>Feed</div><div class="sds">Event feed display settings</div><div class="sg"><div class="sf"><span class="sl">Max Items</span><input class="si" id="s-feed_max_items" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-feed_show_stable"><span class="tog"></span> Show stable events</label></div></div>
+<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(138,130,255,.1);color:#8a82ff">📹</span>Cameras</div><div class="sds">Manage your connected cameras</div><div id="cL"></div><div style="display:flex;gap:8px;margin-top:10px"><button class="bt bg" onclick="oAC()">+ Add Camera</button><button class="bt bb" onclick="sSc()" id="scB">Scan Network</button></div><div id="scR" style="margin-top:8px;display:none"><div id="scSt"></div><div id="scL"></div></div></div>
+<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(255,255,255,.06);color:var(--muted)">💾</span>Data &amp; Retention</div><div class="sds">Storage usage and cleanup rules</div><div id="dS" style="display:flex;gap:16px;margin-bottom:14px;padding:12px 16px;background:var(--bg);border-radius:12px;border:1px solid var(--line)"></div><div class="sg"><div class="sf"><span class="sl">Keep days</span><input class="si" id="s-retain_days" type="number"></div><div class="sf"><span class="sl">Max observations</span><input class="si" id="s-retain_max_obs" type="number"></div><div class="sf"><span class="sl">Max snapshot MB</span><input class="si" id="s-retain_max_snap_mb" type="number"></div><div class="sf"><span class="sl">Strip thumbs after (days)</span><input class="si" id="s-thumb_retain_days" type="number"></div><div class="sf"><span class="sl">Cleanup interval (min)</span><input class="si" id="s-cleanup_interval_min" type="number"></div></div><div class="srw" style="margin-top:10px"><button class="bt bg" onclick="rCl()">Run Cleanup</button><button class="bt br" onclick="if(confirm('Clear ALL data?'))fetch('/api/clear',{method:'POST'}).then(()=>{T('Cleared');lDS()})">Clear All Data</button></div></div>
+<div class="settings-save"><button class="bt bb" style="flex:1;height:44px;font-size:14px" onclick="svS()">Save Settings</button></div>
 </div></div>
 </div>
 
-<div class="modal-bg" id="acM"><div class="modal"><h3 id="cmT">Add camera</h3><div class="sf"><span class="sf-label">Name</span><input class="sf-input" id="cn" placeholder="Front Door"></div><div class="sf" style="margin-top:10px"><span class="sf-label">Source</span><input class="sf-input" id="cso" placeholder="0 or rtsp://..."></div><input type="hidden" id="ce"><div class="modal-foot"><button class="btn btn-ghost" onclick="clM()">Cancel</button><button class="btn btn-blue" onclick="sC()">Save</button></div></div></div>
-<div class="modal-bg" id="vfModal"><div class="modal" style="width:500px"><h3>Open video file</h3><p style="font-size:13px;color:var(--t3)">Select from detected files or paste a path.</p><div class="sf" style="margin-top:10px"><span class="sf-label">File Path</span><input class="sf-input" id="vfPath" placeholder="C:\path\to\video.mp4" style="font-family:'IBM Plex Mono',monospace;font-size:12px"></div><div class="sf" style="margin-top:6px"><span class="sf-label">Name</span><input class="sf-input" id="vfName" placeholder="Video Feed"></div><div class="vf-or">or select a file</div><div class="vf-list" id="vfList"></div><div class="modal-foot"><button class="btn btn-ghost" onclick="document.getElementById('vfModal').classList.remove('open')">Cancel</button><button class="btn btn-blue" onclick="addVF()">Add as Camera</button></div></div></div>
-<div class="scan-overlay" id="scanOv"><div class="scan-overlay-head"><h3>Camera discovery</h3><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="document.getElementById('scanOv').classList.remove('open')">Close</button></div><div class="scan-overlay-body" id="scanOvBody"></div></div>
-<div class="exp-overlay" id="xV" onclick="this.classList.remove('open')"><img id="xI"></div>
-<div class="toast" id="toast"></div>
+<!-- Modals -->
+<div class="mb" id="acM"><div class="md"><h3 id="cmT">Add Camera</h3><div class="sf"><span class="sl">Name</span><input class="si" id="cn" placeholder="Front Door"></div><div class="sf" style="margin-top:8px"><span class="sl">Source</span><input class="si" id="cso" placeholder="0 or rtsp://..."></div><input type="hidden" id="ce"><div class="mf"><button class="bt bg" onclick="cM()">Cancel</button><button class="bt bb" onclick="sC()">Save</button></div></div></div>
+<div class="mb" id="vfM"><div class="md" style="width:480px"><h3>Open Video</h3><div class="sf" style="margin-top:8px"><span class="sl">Path</span><input class="si" id="vfP" placeholder="C:\path\to\video.mp4"></div><div class="sf" style="margin-top:6px"><span class="sl">Name</span><input class="si" id="vfN" placeholder="Video"></div><div class="vor">or select</div><div class="vfl" id="vfL"></div><div class="mf"><button class="bt bg" onclick="cM()">Cancel</button><button class="bt bb" onclick="aVF()">Add</button></div></div></div>
+<div class="sco" id="scO"><div class="scoh"><h3>Scanner</h3><button class="bt bg" style="padding:3px 8px;font-size:10px" onclick="document.getElementById('scO').classList.remove('op')">Close</button></div><div class="scob" id="scOB"></div></div>
+<div class="xo" id="xV" onclick="this.classList.remove('op')"><img id="xI"></div>
+<div class="ev-ov" id="evOv" onclick="if(event.target===this)this.classList.remove('op')">
+  <div class="ev-box">
+    <div class="ev-img"><img id="evImg"><button class="ev-close" onclick="document.getElementById('evOv').classList.remove('op')">&times;</button></div>
+    <div class="ev-body">
+      <div class="ev-head"><span class="ev-cam" id="evCam"></span><span class="ev-time" id="evTime"></span><div class="ev-badges" id="evBadges"></div><span class="ev-mot" id="evMot"></span></div>
+      <div class="ev-kws" id="evKws"></div>
+      <div class="ev-text" id="evText"></div>
+    </div>
+  </div>
+</div>
+<div class="tl-tip" id="tlTip"></div>
+<div class="to" id="toast"></div>
 
 <script>
-let tot=0,ac=0,showSt=true,focus=null;
-const fS=document.getElementById('fS'),eS=document.getElementById('eS');
+var tot=0,ac=0,showSt=true,focus=null,isPaused=false,mainCamId=null;
+var fS=document.getElementById('fS'),eS=document.getElementById('eS');
+var evData={};  // store event data for detail view
 
-async function finishSetup(){const m=document.getElementById('setupModel').value.trim();const tg=document.getElementById('setupTG').value.trim();const d={setup_done:'true'};if(m)d.model=m;if(tg)d.telegram_token=tg;await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});const o=document.getElementById('setupOv');o.classList.add('done');setTimeout(()=>o.remove(),500)}
-function goNav(n,b){document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.topnav-link').forEach(x=>x.classList.remove('on'));document.getElementById('pg-'+n)?.classList.add('on');if(b)b.classList.add('on');if(n==='settings'){loadS();loadDS()}if(n==='gallery')loadG()}
-function T(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2500)}
-function clM(){document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open'))}
-
-function bCG(cams){document.getElementById('cG').innerHTML=cams.map(c=>`<div class="cam-card${focus===c.id?' focused':''}" id="cd-${c.id}"><img src="/video/${c.id}"><div class="cam-top"><span class="cam-live"><span class="dot"></span>LIVE</span><div class="cam-actions"><button class="cam-btn${focus===c.id?' fon':''}" id="fb-${c.id}" onclick="tF('${c.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></button><button class="cam-btn" onclick="snap('${c.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></button><button class="cam-btn" onclick="xC('${c.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button><button class="cam-btn del" onclick="delCam('${c.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></div></div><div class="cam-bot"><span class="cam-label">${c.name}</span></div><div class="analyzing" id="ad-${c.id}">Checking</div></div>`).join('')}
-function xC(id){document.getElementById('xI').src='/video/'+id;document.getElementById('xV').classList.add('open')}
-async function snap(id){T((await(await fetch('/api/take-snapshot/'+id,{method:'POST'})).json()).ok?'Saved':'Failed')}
-async function delCam(id){if(!confirm('Remove?'))return;await fetch('/api/cameras/'+id,{method:'DELETE'});T('Removed');bCG(await(await fetch('/api/cameras')).json())}
-async function tF(id){focus=focus===id?null:id;await fetch('/api/focus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:focus})});document.querySelectorAll('.cam-btn[id^=fb-]').forEach(b=>b.classList.toggle('fon',b.id==='fb-'+focus));document.querySelectorAll('.cam-card').forEach(c=>c.classList.toggle('focused',c.id==='cd-'+focus));document.getElementById('gF').textContent=focus?'Selected: '+focus:'Auto';document.getElementById('releaseFocusBtn').style.display=focus?'flex':'none';T(focus?'Focused on '+id:'Checking all cameras')}
-async function releaseFocus(){focus=null;await fetch('/api/focus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:null})});document.querySelectorAll('.cam-btn[id^=fb-]').forEach(b=>b.classList.remove('fon'));document.querySelectorAll('.cam-card').forEach(c=>c.classList.remove('focused'));document.getElementById('gF').textContent='Auto';document.getElementById('releaseFocusBtn').style.display='none';T('Checking all cameras')}
-let lastLoadWarn=0;
-function uGPU(d,rot,warn){if(!d.available){document.getElementById('gpuBar').style.display='none';return}document.getElementById('gpuBar').style.display='flex';document.getElementById('gN').textContent=d.name;document.getElementById('gV').textContent=d.vram_used+'/'+d.vram_total+'MB';document.getElementById('gV').className='gpu-v'+(d.vram_pct>85?' h':d.vram_pct>70?' w':'');const b=document.getElementById('gVB');b.style.width=d.vram_pct+'%';b.style.background=d.vram_pct>85?'#ff0000':d.vram_pct>70?'#ff9f0a':'#32d74b';document.getElementById('gT').textContent=d.temp+'degC';document.getElementById('gT').className='gpu-v'+(d.temp>80?' h':d.temp>65?' w':'');document.getElementById('gU').textContent=d.util+'%';
-  if(rot){const gf=document.getElementById('gF');if(rot.focus)gf.textContent='Selected: '+rot.focus;else gf.textContent=rot.current+' · '+rot.cycle_time+'s cycle · '+rot.total_cameras+' cams'}
-  if(warn&&Date.now()-lastLoadWarn>30000){lastLoadWarn=Date.now();T('? '+warn)}}
-
-function mkFI(d){if(eS)eS.remove();const div=document.createElement('div');div.className='fi streaming';div.id='fi-'+d.item_id;div.dataset.text='';div.dataset.pinned='0';div.dataset.alert='0';const th=d.thumb?`<div class="fi-thumb"><img src="data:image/jpeg;base64,${d.thumb}"></div>`:'';div.innerHTML=`${th}<div class="fi-content"><div class="fi-row1"><span class="fi-cam">${d.camera_name}</span><span class="fi-time">${d.time}</span></div><div class="fi-text" id="tx-${d.item_id}"><span class="cur"></span></div></div><div class="fi-btns"><button class="fi-b" id="pin-${d.item_id}" onclick="togglePin('${d.item_id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5m-7-5h14l-1.4-7.2a2 2 0 00-2-1.6h-7.2a2 2 0 00-2 1.6z"/><path d="M10 2h4v5h-4z"/></svg></button><button class="fi-b" onclick="cpObs('${d.item_id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>`;fS.prepend(div);tot++;document.getElementById('fN').textContent=tot}
-function uTk(d){const el=document.getElementById('tx-'+d.item_id);if(el)el.innerHTML=d.text+'<span class="cur"></span>';const fi=document.getElementById('fi-'+d.item_id);if(fi)fi.dataset.text=d.text.toLowerCase()}
-function doneFI(d){const div=document.getElementById('fi-'+d.item_id);if(!div)return;div.classList.remove('streaming');div.dataset.text=(d.text||'').toLowerCase();const te=document.getElementById('tx-'+d.item_id);if(te)te.innerHTML=formatText(d.text);const m=div.querySelector('.fi-row1');if(d.no_change){div.classList.add('nochg');if(!showSt)div.style.display='none';if(m)m.insertAdjacentHTML('beforeend','<span class="fi-badge stable">Stable</span>')}else if(d.text&&!d.text.startsWith('Error')&&m)m.insertAdjacentHTML('beforeend','<span class="fi-badge changed">Changed</span>');if(d.motion!==undefined&&m)m.insertAdjacentHTML('beforeend',`<span class="fi-motion">${d.motion}%</span>`);if(d.is_alert){div.classList.remove('nochg');div.classList.add('alert');div.dataset.alert='1';ac++;const ab=document.getElementById('aB');ab.textContent=ac;ab.style.display='inline';if(m)m.insertAdjacentHTML('beforeend','<span class="fi-badge alert">Alert</span>');if(d.alert_keywords?.length){const bd=div.querySelector('.fi-content');if(bd&&te){const kd=document.createElement('div');kd.className='fi-kws';kd.innerHTML=d.alert_keywords.map(k=>`<span class="fi-kw">${k}</span>`).join('');bd.insertBefore(kd,te)}}try{const ctx=new AudioContext();[880,0,880].forEach((f,i)=>{if(!f)return;const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=f;g.gain.value=.1;o.start(ctx.currentTime+i*.15);o.stop(ctx.currentTime+i*.15+.1)})}catch(e){}}}
-function sF(){const q=document.getElementById('sI').value.toLowerCase().trim();document.querySelectorAll('.fi').forEach(fi=>{fi.style.display=(!q||fi.dataset.text?.includes(q))?'flex':'none'})}
-function tabSwitch(el){document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('on'));el.classList.add('on');const tab=el.dataset.tab;const fp=document.getElementById('feedPanel'),tp=document.getElementById('timelinePanel');if(tab==='timeline'){fp.style.display='none';tp.style.display='flex';loadTL(3)}else{fp.style.display='flex';tp.style.display='none';document.querySelectorAll('.fi').forEach(fi=>{if(tab==='feed')fi.style.display='flex';else if(tab==='pinned')fi.style.display=fi.dataset.pinned==='1'?'flex':'none';else fi.style.display=fi.dataset.alert==='1'?'flex':'none'})}}
-async function togglePin(id){const div=document.getElementById('fi-'+id);const btn=document.getElementById('pin-'+id);if(!div)return;const p=div.dataset.pinned==='1';await fetch(`/api/${p?'unpin':'pin'}/${id}`,{method:'POST'});div.dataset.pinned=p?'0':'1';div.classList.toggle('pinned-fi',!p);btn.classList.toggle('pinned',!p);if(!p){const m=div.querySelector('.fi-row1');if(m&&!div.querySelector('.fi-badge.pin'))m.insertAdjacentHTML('afterbegin','<span class="fi-badge pin">Pinned</span>')}else div.querySelector('.fi-badge.pin')?.remove();T(p?'Unpinned':'Pinned')}
-function cpObs(id){const te=document.getElementById('tx-'+id);if(te){navigator.clipboard.writeText(te.textContent);T('Copied')}}
-
-function formatText(t){
-  if(!t)return t;
-  // Use placeholder system to avoid regex matching inside span tags
-  var marks=[];
-  function mark(text,cls){
-    var idx=marks.length;marks.push({t:text,c:cls});
-    return '\x00'+idx+'\x00'
-  }
-  // People counts
-  t=t.replace(/\b(\d+)\s+(people|persons?|men|women|man|woman|child|children|individuals?|figures?|subjects?)\b/gi,function(m){return mark(m,'hl-people')});
-  t=t.replace(/\b(one|two|three|four|five|six|no|several|multiple|a few)\s+(people|persons?|men|women|man|woman|child)\b/gi,function(m){return mark(m,'hl-people')});
-  // Danger
-  var dw=['weapon','knife','gun','fight','fighting','attack','aggressive','threatening','suspicious','intruder','trespassing','break-in','forced','fallen','unconscious','injured','bleeding','fire','smoke','flame','shouting','screaming','panic','unattended','abandoned','mask','loitering','hiding','climbing','vandalism','theft','stealing','robbery','danger','warning','concern','alarming','rob','robbing','pointing'];
-  dw.forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(m){return mark(m,'hl-rd')})});
-  // Objects
-  var ow=['car','vehicle','truck','van','bag','backpack','package','box','phone','laptop','camera','door','gate','fence','window','motorcycle','scooter','bicycle'];
-  ow.forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(m){return mark(m,'hl-ob')})});
-  // Actions
-  var aw=['walking','standing','sitting','entering','leaving','approaching','carrying','holding','talking','looking','facing','moving','waiting','crossing','driving','parking','running'];
-  aw.forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(m){return mark(m,'hl-ac')})});
-  // Safe
-  var sw=['empty','clear','quiet','normal','calm','no activity','no movement','vacant','secure','peaceful'];
-  sw.forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(m){return mark(m,'hl-sf')})});
-  // Escape remaining HTML
-  t=t.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  // Replace placeholders with actual spans
-  t=t.replace(/\x00(\d+)\x00/g,function(_,i){var m=marks[parseInt(i)];return '<span class="'+m.c+'">'+m.t+'</span>'});
-  return t
+function openEv(id){
+  var d=evData[id];if(!d)return;
+  var ov=document.getElementById('evOv');
+  document.getElementById('evImg').src=d.thumb?'data:image/jpeg;base64,'+d.thumb:'';
+  document.getElementById('evImg').style.display=d.thumb?'block':'none';
+  document.getElementById('evCam').textContent=d.camera_name||'';
+  document.getElementById('evTime').textContent=d.time||'';
+  document.getElementById('evMot').textContent=d.motion!==undefined?d.motion+'%':'';
+  var badges='';
+  if(d.is_alert)badges+='<span style="background:var(--red);color:#fff">Alert</span>';
+  if(d.no_change)badges+='<span style="background:#1d212a;color:var(--soft)">Stable</span>';
+  else if(!d.is_alert)badges+='<span style="background:rgba(10,132,255,.18);color:#bddfff">Changed</span>';
+  document.getElementById('evBadges').innerHTML=badges;
+  document.getElementById('evKws').innerHTML=(d.alert_keywords||[]).map(function(k){return'<span>'+k+'</span>'}).join('');
+  document.getElementById('evText').innerHTML=fmt(d.text||'');
+  ov.classList.add('op');
 }
+function T(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none'},2500)}
 
-let tlData=[],tlHours=3,tlZoom=1,tlRAF=0,tlResizeTimer=0;
-const TL_MIN_ZOOM=1,TL_MAX_ZOOM=12;
-function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
-function updateTLZoomUI(){const z=document.getElementById('tlZoom'),p=document.getElementById('tlZoomPct');if(z)z.value=tlZoom;if(p)p.textContent=Math.round(tlZoom*100)+'%'}
-function scheduleTLRender(){cancelAnimationFrame(tlRAF);tlRAF=requestAnimationFrame(()=>renderTL(tlData,tlHours))}
-function setTLZoom(value,anchorRatio){
-  const tracks=document.querySelector('#tlContainer .tl-tracks');
-  const ratio=anchorRatio ?? (tracks?((tracks.scrollLeft+tracks.clientWidth/2)/Math.max(1,tracks.scrollWidth)):.5);
-  tlZoom=clamp(parseFloat(value)||1,TL_MIN_ZOOM,TL_MAX_ZOOM);updateTLZoomUI();renderTL(tlData,tlHours);
-  requestAnimationFrame(()=>{const nt=document.querySelector('#tlContainer .tl-tracks');if(nt)nt.scrollLeft=Math.max(0,ratio*nt.scrollWidth-nt.clientWidth/2)})
-}
-function zoomTL(dir){setTLZoom(tlZoom*(dir>0?1.32:1/1.32))}
-function resetTLZoom(){setTLZoom(1,.5)}
-function initTLWheel(){const c=document.getElementById('tlContainer');if(!c||c.dataset.zoomReady)return;c.dataset.zoomReady='1';c.addEventListener('wheel',e=>{if(!(e.ctrlKey||e.metaKey||e.shiftKey))return;const tracks=c.querySelector('.tl-tracks');if(!tracks)return;e.preventDefault();const r=tracks.getBoundingClientRect();const x=clamp(e.clientX-r.left,0,Math.max(1,r.width));const ratio=(tracks.scrollLeft+x)/Math.max(1,tracks.scrollWidth);setTLZoom(tlZoom*(e.deltaY<0?1.15:.87),ratio)},{passive:false})}
-async function loadTL(hours,btn){
-  tlHours=hours;if(btn){document.querySelectorAll('.tl-range button').forEach(p=>p.classList.remove('on'));btn.classList.add('on')}
-  initTLWheel();const r=await(await fetch('/api/timeline?hours='+hours)).json();tlData=r.events||[];document.getElementById('tlCount').textContent=tlData.length+' events';renderTL(tlData,hours)
-}
-function renderTL(events,hours){
-  const c=document.getElementById('tlContainer');if(!c)return;updateTLZoomUI();
-  if(!events||!events.length){c.innerHTML='<div class="tl-empty">No events in the last '+hours+'h</div>';document.getElementById('tlDetail').classList.remove('show');return}
-  const now=new Date(),start=new Date(now.getTime()-hours*3600000),totalMs=now-start,labelW=122;
-  const viewport=Math.max(c.clientWidth-labelW-28,620),tw=Math.round(Math.max(viewport,viewport*tlZoom)),pxMs=tw/totalMs;
-  const camMap={};events.forEach(e=>{(camMap[e.cam]||(camMap[e.cam]=[])).push(e)});
-  const tickMins=tlZoom>=8?5:tlZoom>=5?10:tlZoom>=2.5?15:hours<=3?15:hours<=6?30:hours<=12?60:120;
-  let html='<div class="tl-ruler"><div class="tl-ruler-inner" style="width:'+(tw+labelW)+'px;padding-left:'+labelW+'px">';
-  for(let t=new Date(start);t<=now;t=new Date(t.getTime()+tickMins*60000)){const x=(t-start)*pxMs;html+=`<div class="tl-tick" style="position:absolute;left:${labelW+x}px">${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}</div>`}
-  html+='</div></div><div class="tl-tracks"><div class="tl-tracks-inner" style="width:'+(tw+labelW)+'px">';
-  Object.keys(camMap).forEach(cam=>{
-    const evs=camMap[cam].slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
-    const clusters=[],mergePx=tlZoom<1.5?18:tlZoom<3?13:tlZoom<6?8:4;
-    evs.forEach(e=>{const x=clamp((new Date(e.ts)-start)*pxMs,0,tw);let last=clusters[clusters.length-1];if(last&&x-last.x<=mergePx){last.items.push(e);last.x=(last.x*(last.items.length-1)+x)/last.items.length;last.alert=last.alert||!!e.alert;last.pin=last.pin||!!e.pin}else clusters.push({x,items:[e],alert:!!e.alert,pin:!!e.pin})});
-    html+=`<div class="tl-lane"><div class="tl-lane-label">${esc(cam)}</div><div class="tl-lane-track">`;
-    clusters.forEach(cl=>{const count=cl.items.length,first=cl.items[0],cls=cl.alert?'alert':cl.pin?'pinned':'normal';let w=count>1?Math.min(18+Math.log2(count)*8,58):Math.min(10+tlZoom*5,42);if(tlZoom>=6&&count===1)w=86;const left=clamp(cl.x-w/2,0,Math.max(0,tw-w));const ids=cl.items.map(e=>esc(e.id)).join(',');const title=count>1?`${count} events — ${esc(first.cam)}`:esc(first.text||'Event');const label=count>1?count:(tlZoom>=6?esc((first.text||'Event').slice(0,22)):'');html+=`<button type="button" class="tl-ev ${cls}${count>1?' is-cluster':''}${label?' show-label':''}" style="left:${left}px;width:${w}px" data-ids="${ids}" title="${title}"><span>${label}</span></button>`});
-    html+='</div></div>'
+// Per-camera lifelines
+var llCams={},llFrame=0,llCamCount=0;
+function llInitCams(cams){
+  var strip=document.getElementById('llStrip');if(!strip)return;
+  llCamCount=cams.length;
+  var ids=cams.map(function(c){return c.id});
+  Object.keys(llCams).forEach(function(k){if(k[0]==='_')return;if(ids.indexOf(k)<0)delete llCams[k]});
+  strip.innerHTML=cams.map(function(c){
+    if(!llCams[c.id])llCams[c.id]={data:[],target:0,current:0,dirty:true};
+    return'<div class="ll-cam" id="llc-'+c.id+'" onclick="setMain(\''+c.id+"','"+c.name.replace(/'/g,"\\'")+'\')"><canvas id="llcv-'+c.id+'"></canvas><div class="ll-cam-info"><span class="ll-cam-name">'+c.name+'</span><span class="ll-cam-lvl low" id="lll-'+c.id+'">LOW</span></div></div>'
+  }).join('');
+  cams.forEach(function(c){
+    var cv=document.getElementById('llcv-'+c.id);if(!cv)return;
+    var w=Math.ceil(cv.clientWidth/2);
+    var d=llCams[c.id];
+    while(d.data.length<w)d.data.push(0);
   });
-  html+='</div></div><div class="tl-detail-hint">Scroll to pan. Hold Ctrl/⌘ or Shift and scroll to zoom around the cursor.</div>';c.innerHTML=html;
-  const tracks=c.querySelector('.tl-tracks');if(tracks&&!tracks.dataset.clickReady){tracks.dataset.clickReady='1';tracks.addEventListener('click',e=>{const ev=e.target.closest('.tl-ev');if(ev)showTLCluster(ev.dataset.ids||'')})}
+  if(!llCams._raf){llCams._raf=true;llDrawAll()}
 }
-function showTLCluster(ids){const arr=String(ids||'').split(',').filter(Boolean);if(arr.length===1)return showTLD(arr[0]);const items=arr.map(id=>tlData.find(x=>String(x.id)===id)).filter(Boolean);const d=document.getElementById('tlDetail');if(!items.length)return;const head=items.some(e=>e.alert)?'<span class="tl-detail-badge alert">Alert</span>':'';d.innerHTML=`<div class="tl-detail-header"><span class="tl-detail-cam">${items.length} events</span>${head}</div><div class="tl-detail-list">${items.slice(0,18).map(e=>{const t=new Date(e.ts);return `<div class="tl-detail-row"><strong>${esc(e.cam)} · ${t.toLocaleTimeString()}</strong>${esc(e.text||'Event')}</div>`}).join('')}${items.length>18?`<div class="tl-detail-row">+ ${items.length-18} more</div>`:''}</div>`;d.classList.add('show')}
-function showTLD(id){const e=tlData.find(x=>String(x.id)===String(id));if(!e)return;const d=document.getElementById('tlDetail'),t=new Date(e.ts);d.innerHTML=`<div class="tl-detail-header"><span class="tl-detail-cam">${esc(e.cam)}</span><span class="tl-detail-time">${t.toLocaleTimeString()}</span>${e.alert?'<span class="tl-detail-badge alert">Alert</span>':''}${e.pin?'<span class="tl-detail-badge pin">Pinned</span>':''}</div><div class="tl-detail-text">${esc(e.text||'Event')}</div>${e.kws&&e.kws.length?'<div class="tl-detail-kws">'+e.kws.map(k=>`<span class="tl-detail-kw">${esc(k)}</span>`).join('')+'</div>':''}`;d.classList.add('show')}
-window.addEventListener('resize',()=>{if(!tlData.length)return;clearTimeout(tlResizeTimer);tlResizeTimer=setTimeout(scheduleTLRender,160)});
-
-
-function sse(){const es=new EventSource('/events');es.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='stream_start'){mkFI(m);const a=document.getElementById('ad-'+m.camera_id);if(a)a.style.display='block'}if(m.type==='stream_token')uTk(m);if(m.type==='feed_item'){doneFI(m);const a=document.getElementById('ad-'+m.camera_id);if(a)a.style.display='none'}if(m.type==='gpu')uGPU(m.data,m.rotation,m.load_warning)};es.onerror=()=>{es.close();setTimeout(sse,3000)}}
-
-const SK=['model','ollama_url','prompt','max_tokens','inference_size','analysis_interval','alert_keywords','telegram_token','telegram_chat_id','telegram_quiet_start','telegram_quiet_end','telegram_min_interval','telegram_on_alert','telegram_on_all','motion_sensitivity','motion_enabled','snapshot_on_every','snapshot_quality','feed_show_stable','feed_max_items','retain_days','retain_max_obs','retain_max_snap_mb','thumb_retain_days','cleanup_interval_min'];
-async function loadS(){const s=await(await fetch('/api/settings')).json();SK.forEach(k=>{const el=document.getElementById('s-'+k);if(!el)return;if(k==='alert_keywords'){try{el.value=JSON.parse(s[k]||'[]').join(', ')}catch(e){el.value=s[k]||''}}else if(el.type==='checkbox')el.checked=s[k]==='true';else el.value=s[k]||''});showSt=s.feed_show_stable!=='false';const cams=await(await fetch('/api/cameras')).json();document.getElementById('cL').innerHTML=cams.map(c=>`<div class="cam-list-row"><span>${c.name}</span><span style="color:var(--t3);font-family:'IBM Plex Mono';font-size:11px">${c.source}</span><button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="eC('${c.id}','${c.name}','${c.source}')">Edit</button><button class="btn btn-red" style="padding:4px 12px;font-size:11px" onclick="dC('${c.id}')">Remove</button></div>`).join('')}
-async function saveS(){const data={};SK.forEach(k=>{const el=document.getElementById('s-'+k);if(!el)return;if(k==='alert_keywords')data[k]=JSON.stringify(el.value.split(',').map(s=>s.trim()).filter(Boolean));else if(el.type==='checkbox')data[k]=el.checked?'true':'false';else data[k]=el.value});await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});showSt=data.feed_show_stable==='true';T('Saved')}
-async function tgTest(){T((await(await fetch('/api/test-telegram',{method:'POST'})).json()).ok?'Sent':'Failed')}
-function openAC(){document.getElementById('ce').value='';document.getElementById('cn').value='';document.getElementById('cso').value='';document.getElementById('cmT').textContent='Add camera';document.getElementById('acM').classList.add('open')}
-function eC(id,n,s){document.getElementById('ce').value=id;document.getElementById('cn').value=n;document.getElementById('cso').value=s;document.getElementById('cmT').textContent='Edit Camera';document.getElementById('acM').classList.add('open')}
-async function sC(){const id=document.getElementById('ce').value,n=document.getElementById('cn').value.trim(),s=document.getElementById('cso').value.trim();if(!n||!s){T('Fill all fields');return}await fetch(id?'/api/cameras/'+id:'/api/cameras',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:s})});clM();T(id?'Updated':'Added');loadS();bCG(await(await fetch('/api/cameras')).json())}
-async function dC(id){if(!confirm('Remove?'))return;await fetch('/api/cameras/'+id,{method:'DELETE'});T('Removed');loadS();bCG(await(await fetch('/api/cameras')).json())}
-async function loadG(){const d=await(await fetch('/api/gallery')).json();document.getElementById('galG').innerHTML=d.length?d.map(s=>`<div class="gal-item" onclick="document.getElementById('xI').src='/snapshot/${s.path}';document.getElementById('xV').classList.add('open')"><img src="/snapshot/${s.path}" loading="lazy"><div class="gal-label">${s.name} - ${s.date} ${s.time}</div></div>`).join(''):'<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--t3)">No snapshots yet</div>'}
-async function loadDS(){try{const d=await(await fetch('/api/data-stats')).json();document.getElementById('dataStats').innerHTML=`<div style="flex:1"><div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:2px">Database</div><div style="font-size:16px;font-weight:700">${d.db_size_mb||0} MB</div></div><div style="flex:1"><div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:2px">Saved snapshots</div><div style="font-size:16px;font-weight:700">${d.snap_size_mb||0} MB</div></div><div style="flex:1"><div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:2px">Events</div><div style="font-size:16px;font-weight:700">${d.total_obs||0}</div></div>`}catch(e){}}
-async function runCleanup(){T('Cleaning...');await fetch('/api/cleanup',{method:'POST'});T('Done');loadDS()}
-
-async function openVF(){document.getElementById('vfPath').value='';document.getElementById('vfName').value='';document.getElementById('vfModal').classList.add('open');const l=document.getElementById('vfList');l.innerHTML='<div style="padding:16px;color:var(--t3);text-align:center;font-size:12px">Looking for files...</div>';const f=await(await fetch('/api/video-files')).json();l.innerHTML=f.length?f.map(v=>`<div class="vf-item" onclick="pickVF('${v.path.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}','${v.name.replace(/'/g,"\\'")}')"><div class="vf-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div style="flex:1;min-width:0"><div class="vf-name">${v.name}</div><div class="vf-meta">${v.size} - ${v.dir}</div></div></div>`).join(''):'<div style="padding:16px;color:var(--t3);text-align:center;font-size:12px">No video files found</div>'}
-function pickVF(p,n){document.getElementById('vfPath').value=p;document.getElementById('vfName').value=n.replace(/\.[^.]+$/,'')}
-async function addVF(){const p=document.getElementById('vfPath').value.trim(),n=document.getElementById('vfName').value.trim()||'Video';if(!p){T('Enter a path');return}await fetch('/api/cameras',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:p})});clM();T('Added');bCG(await(await fetch('/api/cameras')).json())}
-
-let qSP;
-async function quickScan(){document.getElementById('scanOv').classList.add('open');document.getElementById('scanOvBody').innerHTML='<div style="padding:16px;color:var(--t3);text-align:center">Looking for files...</div>';document.getElementById('qScanBtn').disabled=true;await fetch('/api/scan',{method:'POST'});qSP=setInterval(async()=>{const r=await(await fetch('/api/scan')).json();let h=r.lip?`<div style="font-size:11px;color:var(--t3);margin-bottom:8px">${r.status} - IP: ${r.lip}</div>`:'';r.usb.forEach(c=>{h+=`<div class="scan-item"><span class="scan-type usb">USB</span><span class="scan-name">${c.name}</span><span class="scan-src">${c.source} (${c.info})</span><button class="scan-add" onclick="addSM('${c.name}','${c.source}')">+ Add</button></div>`});r.network.forEach(c=>{h+=`<div class="scan-item"><span class="scan-type ${c.type}">${c.type.toUpperCase()}</span><span class="scan-name">${c.name}</span><span class="scan-src">${c.source}</span><button class="scan-add" onclick="addSM('${c.name}','${c.source}')">+ Add</button></div>`});if(!r.usb.length&&!r.network.length&&r.status==='done')h+='<div style="padding:16px;color:var(--t3);text-align:center;font-size:13px">No cameras found</div>';document.getElementById('scanOvBody').innerHTML=h;if(r.status==='done'){clearInterval(qSP);document.getElementById('qScanBtn').disabled=false}},1500)}
-async function addSM(n,s){await fetch('/api/cameras',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:s})});T('Added: '+n);bCG(await(await fetch('/api/cameras')).json())}
-let sSP;async function startScan(){document.getElementById('scanR').style.display='block';document.getElementById('scanSt').textContent='Looking for files...';document.getElementById('scanL').innerHTML='';document.getElementById('scanBtn').disabled=true;await fetch('/api/scan',{method:'POST'});sSP=setInterval(async()=>{const r=await(await fetch('/api/scan')).json();document.getElementById('scanSt').textContent=r.status+(r.lip?' - '+r.lip:'');let h='';r.usb.forEach(c=>{h+=`<div class="scan-item"><span class="scan-type usb">USB</span><span class="scan-name">${c.name}</span><span class="scan-src">${c.source}</span><button class="scan-add" onclick="addSM('${c.name}','${c.source}')">+ Add</button></div>`});r.network.forEach(c=>{h+=`<div class="scan-item"><span class="scan-type ${c.type}">${c.type.toUpperCase()}</span><span class="scan-name">${c.name}</span><span class="scan-src">${c.source}</span><button class="scan-add" onclick="addSM('${c.name}','${c.source}')">+ Add</button></div>`});document.getElementById('scanL').innerHTML=h||'<div style="padding:12px;color:var(--t3);text-align:center">No cameras found</div>';if(r.status==='done'){clearInterval(sSP);document.getElementById('scanBtn').disabled=false}},1500)}
-
-async function loadCachedFeed(){
-  try{
-    const items=await(await fetch('/api/recent-feed?limit=50')).json();
-    if(!items.length)return;
-    if(eS)eS.remove();
-    // Load in chronological order (oldest first since we prepend)
-    items.reverse().forEach(d=>{
-      const div=document.createElement('div');div.className='fi'+(d.is_alert?' alert':'')+(d.pinned?' pinned-fi':'');
-      div.id='fi-'+d.item_id;div.dataset.text=(d.text||'').toLowerCase();div.dataset.pinned=d.pinned?'1':'0';div.dataset.alert=d.is_alert?'1':'0';
-      const th=d.thumb?`<div class="fi-thumb"><img src="data:image/jpeg;base64,${d.thumb}"></div>`:'';
-      const badges=(d.is_alert?'<span class="fi-badge alert">Alert</span>':'<span class="fi-badge changed">Changed</span>')+(d.pinned?'<span class="fi-badge pin">Pinned</span>':'');
-      const kws=d.alert_keywords?.length?'<div class="fi-kws">'+d.alert_keywords.map(k=>`<span class="fi-kw">${k}</span>`).join('')+'</div>':'';
-      div.innerHTML=`${th}<div class="fi-content"><div class="fi-row1"><span class="fi-cam">${d.camera_name}</span><span class="fi-time">${d.time}</span>${badges}</div>${kws}<div class="fi-text" id="tx-${d.item_id}">${formatText(d.text)}</div></div><div class="fi-btns"><button class="fi-b${d.pinned?' pinned':''}" id="pin-${d.item_id}" onclick="togglePin('${d.item_id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5m-7-5h14l-1.4-7.2a2 2 0 00-2-1.6h-7.2a2 2 0 00-2 1.6z"/><path d="M10 2h4v5h-4z"/></svg></button><button class="fi-b" onclick="cpObs('${d.item_id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>`;
-      fS.prepend(div);tot++
+function llPush(level,camId){
+  if(!camId){Object.keys(llCams).forEach(function(k){if(k[0]==='_')return;llCams[k].target=Math.max(0,Math.min(1,level));llCams[k].dirty=true});return}
+  var d=llCams[camId];if(d){d.target=Math.max(0,Math.min(1,level));d.dirty=true}
+}
+function llDrawAll(){
+  llFrame++;
+  // Adaptive throttle: 1-2 cams=every 3rd frame(20fps), 3-4=every 4th(15fps), 5+=every 6th(10fps)
+  var skip=llCamCount>4?6:llCamCount>2?4:3;
+  if(llFrame%skip===0){
+    Object.keys(llCams).forEach(function(id){
+      if(id[0]==='_')return;
+      var d=llCams[id],cv=document.getElementById('llcv-'+id);if(!cv)return;
+      var ctx=cv.getContext('2d');
+      var dpr=window.devicePixelRatio||1;
+      var w=cv.clientWidth,h=cv.clientHeight;
+      if(w===0||h===0)return;
+      if(cv.width!==w*dpr||cv.height!==h*dpr){cv.width=w*dpr;cv.height=h*dpr;ctx.scale(dpr,dpr)}
+      d.current+=(d.target-d.current)*0.08;
+      var noise=Math.sin(Date.now()/800+id.charCodeAt(3)*100)*0.01+Math.sin(Date.now()/300+id.charCodeAt(3)*50)*0.005;
+      var val=Math.max(0,Math.min(1,d.current+noise));
+      d.data.push(val);
+      var maxPts=Math.ceil(w/2);
+      while(d.data.length>maxPts)d.data.shift();
+      ctx.clearRect(0,0,w,h);
+      var pad=2,gh=h-pad*2;
+      ctx.beginPath();
+      for(var i=0;i<d.data.length;i++){
+        var x=i*(w/maxPts),y=pad+gh*(1-d.data[i]);
+        if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      var r=Math.round(d.current*255),g=Math.round((1-d.current)*200);
+      var col='rgb('+r+','+g+',40)';
+      ctx.strokeStyle=col;ctx.lineWidth=1.2;ctx.lineJoin='round';ctx.stroke();
+      var lastX=(d.data.length-1)*(w/maxPts);
+      ctx.lineTo(lastX,h);ctx.lineTo(0,h);ctx.closePath();
+      var grd=ctx.createLinearGradient(0,0,0,h);
+      grd.addColorStop(0,col.replace('rgb','rgba').replace(')',',0.2)'));
+      grd.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=grd;ctx.fill();
+      var tipX=lastX,tipY=pad+gh*(1-val);
+      ctx.beginPath();ctx.arc(tipX,tipY,2.5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+      // Update level badge only when value changes significantly
+      if(d.dirty||llFrame%15===0){
+        d.dirty=false;
+        var lbl=d.current<0.15?'low':d.current<0.4?'mild':d.current<0.65?'elevated':'high';
+        var le=document.getElementById('lll-'+id);
+        if(le){le.textContent=lbl.toUpperCase();le.className='ll-cam-lvl '+lbl}
+        var wrap=document.getElementById('llc-'+id);
+        if(wrap)wrap.style.borderColor=d.current>0.5?'rgba(255,0,0,'+(0.2+d.current*0.4)+')':'';
+      }
     });
-    document.getElementById('fN').textContent=tot
-  }catch(e){console.log('No cached feed:',e)}
+  }
+  requestAnimationFrame(llDrawAll);
+}
+function llScore(d){
+  if(!d||d.no_change)return 0.02;
+  var score=0.1;
+  if(d.is_alert){score=0.5;var kws=(d.alert_keywords||[]).length;score+=kws*0.12}
+  if(d.motion!==undefined)score+=Math.min(d.motion/100,1)*0.15;
+  return Math.min(1,score);
+}
+function cM(){document.querySelectorAll('.mb').forEach(function(m){m.classList.remove('op')})}
+function go(n,b){document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on')});document.querySelectorAll('.nb').forEach(function(x){x.classList.remove('on')});var e=document.getElementById('pg-'+n);if(e)e.classList.add('on');if(b)b.classList.add('on');if(n==='s'){lS();lDS();initPresets()}if(n==='gl')lG()}
+async function sD(){var d={setup_done:'true'},m=document.getElementById('smod').value.trim(),tg=document.getElementById('stg').value.trim();if(m)d.model=m;if(tg)d.telegram_token=tg;await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});var o=document.getElementById('sov');o.classList.add('dn');setTimeout(function(){o.remove()},500)}
+
+// Splitter drag
+(function(){var sp=document.getElementById('splitter'),fp=document.getElementById('feedPanel'),dragging=false,startX,startW;
+sp.addEventListener('mousedown',function(e){dragging=true;startX=e.clientX;startW=fp.offsetWidth;sp.classList.add('dragging');document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault()});
+document.addEventListener('mousemove',function(e){if(!dragging)return;var w=startW+(e.clientX-startX);fp.style.width=Math.max(260,Math.min(600,w))+'px'});
+document.addEventListener('mouseup',function(){if(dragging){dragging=false;sp.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect=''}})})();
+
+// Cameras - main + strip
+var camThumbs={};  // latest thumbnail per camera from events
+function camThumbSrc(id){return camThumbs[id]?'data:image/jpeg;base64,'+camThumbs[id]:''}
+function uCamThumb(camId,thumb){
+  if(!thumb||!camId)return;camThumbs[camId]=thumb;
+  var img=document.querySelector('#cs-'+camId+' img');
+  if(img&&camId!==mainCamId)img.src=camThumbSrc(camId);
+}
+function bCG(cams){
+  if(!cams.length){document.getElementById('mainImg').src='about:blank';document.getElementById('mainName').textContent='No camera';document.getElementById('camStrip').innerHTML='';document.getElementById('llStrip').innerHTML='';return}
+  if(!mainCamId||!cams.find(function(c){return c.id===mainCamId}))mainCamId=cams[0].id;
+  var mc=cams.find(function(c){return c.id===mainCamId});
+  document.getElementById('mainImg').src='/video/'+mc.id;
+  document.getElementById('mainName').textContent=mc.name;
+  llInitCams(cams);
+  // Thumbnails: use last event snapshot, NOT live MJPEG stream (1 stream total = main only)
+  document.getElementById('camStrip').innerHTML=cams.map(function(c){
+    var src=camThumbSrc(c.id);
+    return '<div class="cam-sm'+(c.id===mainCamId?' active':'')+'" onclick="setMain(\''+c.id+'\',\''+c.name+'\')" id="cs-'+c.id+'"><img src="'+src+'" loading="lazy"><div class="cam-sm-label">'+c.name+'</div><div class="cam-sm-acts"><button class="cam-sm-btn" onclick="event.stopPropagation();tF(\''+c.id+'\')" title="Focus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg></button><button class="cam-sm-btn" onclick="event.stopPropagation();sn(\''+c.id+'\')" title="Snapshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="4"/><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/></svg></button><button class="cam-sm-btn dl" onclick="event.stopPropagation();dCm(\''+c.id+'\')" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></div></div>'
+  }).join('')
+}
+function setMain(id,name){
+  mainCamId=id;
+  document.getElementById('mainImg').src='/video/'+id;
+  document.getElementById('mainName').textContent=name;
+  document.querySelectorAll('.cam-sm').forEach(function(c){c.classList.toggle('active',c.id==='cs-'+id)});
+}
+function xC(id){document.getElementById('xI').src='/video/'+id;document.getElementById('xV').classList.add('op')}
+async function sn(id){T((await(await fetch('/api/take-snapshot/'+id,{method:'POST'})).json()).ok?'Saved':'Failed')}
+async function dCm(id){if(!confirm('Remove?'))return;await fetch('/api/cameras/'+id,{method:'DELETE'});T('Removed');bCG(await(await fetch('/api/cameras')).json())}
+async function tF(id){focus=focus===id?null:id;await fetch('/api/focus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:focus})});document.getElementById('gF').textContent=focus?'Focus: '+focus:'Rotating';document.getElementById('rfB').style.display=focus?'flex':'none';T(focus?'Focused':'Rotating')}
+async function rF(){focus=null;await fetch('/api/focus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({camera_id:null})});document.getElementById('gF').textContent='Rotating';document.getElementById('rfB').style.display='none';T('Rotating')}
+async function tPa(){if(isPaused){await fetch('/api/resume',{method:'POST'});isPaused=false}else{await fetch('/api/pause',{method:'POST'});isPaused=true}document.getElementById('paT').textContent=isPaused?'Resume':'Pause';document.getElementById('paB').style.borderColor=isPaused?'var(--red)':'';document.getElementById('paB').style.color=isPaused?'var(--red)':'';T(isPaused?'Paused':'Resumed')}
+
+// GPU
+var lLW=0;function uG(d,r,w){if(!d.available){document.getElementById('gpuB').style.display='none';return}document.getElementById('gpuB').style.display='flex';document.getElementById('gN').textContent=d.name;document.getElementById('gV').textContent=d.vram_used+'/'+d.vram_total+'MB';document.getElementById('gV').className='gv'+(d.vram_pct>85?' h':d.vram_pct>70?' w':'');var b=document.getElementById('gVB');b.style.width=d.vram_pct+'%';b.style.background=d.vram_pct>85?'#ff0000':d.vram_pct>70?'#ff9f0a':'#32d74b';document.getElementById('gT').textContent=d.temp+'C';document.getElementById('gT').className='gv'+(d.temp>80?' h':d.temp>65?' w':'');document.getElementById('gU').textContent=d.util+'%';if(r){var g=document.getElementById('gF');g.textContent=r.current==='Paused'?'PAUSED':r.focus?'Focus: '+r.focus:r.current+' - '+r.cycle_time+'s - '+r.total_cameras+' cams'}if(w&&Date.now()-lLW>30000){lLW=Date.now();T(w)}}
+
+// Text formatter
+function fmt(t){if(!t)return t;var m=[];function mk(x,c){var i=m.length;m.push({t:x,c:c});return'\x00'+i+'\x00'}t=t.replace(/\b(\d+)\s+(people|persons?|men|women|man|woman|child|children|individuals?)\b/gi,function(x){return mk(x,'hl-people')});t=t.replace(/\b(one|two|three|four|five|six|no|several|multiple)\s+(people|persons?|men|women|man|woman|child)\b/gi,function(x){return mk(x,'hl-people')});['weapon','knife','gun','fight','fighting','attack','aggressive','threatening','suspicious','intruder','forced','fallen','unconscious','injured','bleeding','fire','smoke','panic','unattended','abandoned','mask','loitering','hiding','climbing','vandalism','theft','stealing','robbery','danger','warning','rob','robbing','pointing'].forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(x){return mk(x,'hl-rd')})});['car','vehicle','truck','van','bag','backpack','phone','camera','door','gate','fence','window','motorcycle'].forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(x){return mk(x,'hl-ob')})});['walking','standing','sitting','entering','leaving','approaching','carrying','holding','talking','looking','moving','waiting','running','crossing'].forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(x){return mk(x,'hl-ac')})});['empty','clear','quiet','normal','calm','vacant','secure','peaceful'].forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(x){return mk(x,'hl-sf')})});t=t.replace(/</g,'&lt;').replace(/>/g,'&gt;');t=t.replace(/\x00(\d+)\x00/g,function(_,i){var v=m[parseInt(i)];return'<span class="'+v.c+'">'+v.t+'</span>'});return t}
+
+// Feed
+function mkFI(d){if(eS)eS.remove();evData[d.item_id]={camera_name:d.camera_name,time:d.time,thumb:d.thumb,motion:d.motion,text:'',is_alert:false,no_change:false,alert_keywords:[]};uCamThumb(d.camera_id,d.thumb);var v=document.createElement('div');v.className='fi streaming';v.id='fi-'+d.item_id;v.dataset.text='';v.dataset.pinned='0';v.dataset.alert='0';v.style.cursor='pointer';v.onclick=function(e){if(!e.target.closest('.fi-btns'))openEv(d.item_id)};var th=d.thumb?'<div class="fi-thumb"><img src="data:image/jpeg;base64,'+d.thumb+'"></div>':'';v.innerHTML=th+'<div class="fi-content"><div class="fi-row1"><span class="fi-cam">'+d.camera_name+'</span><span class="fi-time">'+d.time+'</span></div><div class="fi-text" id="tx-'+d.item_id+'"><span class="cur"></span></div></div><div class="fi-btns"><button class="fi-b" id="pn-'+d.item_id+'" onclick="tP(\''+d.item_id+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5m-7-5h14l-1.4-7.2a2 2 0 00-2-1.6h-7.2a2 2 0 00-2 1.6z"/><path d="M10 2h4v5h-4z"/></svg></button><button class="fi-b" onclick="cO(\''+d.item_id+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>';fS.prepend(v);tot++;document.getElementById('fN').textContent=tot;
+  if(d.camera_id===mainCamId){document.getElementById('mainAz').style.display='block'}}
+function uTk(d){var e=document.getElementById('tx-'+d.item_id);if(e)e.innerHTML=fmt(d.text)+'<span class="cur"></span>';var f=document.getElementById('fi-'+d.item_id);if(f)f.dataset.text=d.text.toLowerCase()}
+function dFI(d){var v=document.getElementById('fi-'+d.item_id);if(!v)return;
+  // Store event data for detail view
+  if(evData[d.item_id]){evData[d.item_id].text=d.text||'';evData[d.item_id].is_alert=!!d.is_alert;evData[d.item_id].no_change=!!d.no_change;evData[d.item_id].alert_keywords=d.alert_keywords||[];evData[d.item_id].motion=d.motion;}
+  v.classList.remove('streaming');v.dataset.text=(d.text||'').toLowerCase();var e=document.getElementById('tx-'+d.item_id);if(e)e.innerHTML=fmt(d.text);var r=v.querySelector('.fi-row1');
+
+  if(d.no_change){v.classList.add('nochg');if(!showSt)v.style.display='none';if(r)r.insertAdjacentHTML('beforeend','<span class="fi-badge stable">Stable</span>')}else if(d.text&&!d.text.startsWith('Error')&&r)r.insertAdjacentHTML('beforeend','<span class="fi-badge changed">Changed</span>');if(d.motion!==undefined&&r)r.insertAdjacentHTML('beforeend','<span class="fi-motion">'+d.motion+'%</span>');if(d.is_alert){v.classList.remove('nochg');v.classList.add('alert');v.dataset.alert='1';ac++;var ab=document.getElementById('aB');ab.textContent=ac;ab.style.display='inline';if(r)r.insertAdjacentHTML('beforeend','<span class="fi-badge alert">Alert</span>');if(d.alert_keywords&&d.alert_keywords.length){var bd=v.querySelector('.fi-content');if(bd&&e){var kd=document.createElement('div');kd.className='fi-kws';kd.innerHTML=d.alert_keywords.map(function(k){return'<span class="fi-kw">'+k+'</span>'}).join('');bd.insertBefore(kd,e)}}try{var ctx=new AudioContext();[880,0,880].forEach(function(f,i){if(!f)return;var o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=f;g.gain.value=.1;o.start(ctx.currentTime+i*.15);o.stop(ctx.currentTime+i*.15+.1)})}catch(x){}}
+  if(d.camera_id===mainCamId)document.getElementById('mainAz').style.display='none'}
+function dSr(){var q=document.getElementById('sI').value.toLowerCase();document.querySelectorAll('.fi').forEach(function(f){f.style.display=(!q||f.dataset.text.indexOf(q)>=0)?'flex':'none'})}
+function fTab(e){document.querySelectorAll('.ftab').forEach(function(t){t.classList.remove('on')});e.classList.add('on');var t=e.dataset.t;document.querySelectorAll('.fi').forEach(function(f){if(t==='f')f.style.display='flex';else if(t==='pn')f.style.display=f.dataset.pinned==='1'?'flex':'none';else f.style.display=f.dataset.alert==='1'?'flex':'none'})}
+function bTab(e){document.querySelectorAll('.btab').forEach(function(t){t.classList.remove('on')});e.classList.add('on')}
+async function tP(i){var v=document.getElementById('fi-'+i),b=document.getElementById('pn-'+i);if(!v)return;var p=v.dataset.pinned==='1';await fetch('/api/'+(p?'unpin':'pin')+'/'+i,{method:'POST'});v.dataset.pinned=p?'0':'1';v.classList.toggle('pinned-fi',!p);b.classList.toggle('pinned',!p);if(!p){var r=v.querySelector('.fi-row1');if(r&&!v.querySelector('.fi-badge.pin'))r.insertAdjacentHTML('afterbegin','<span class="fi-badge pin">Pinned</span>')}else{var pb=v.querySelector('.fi-badge.pin');if(pb)pb.remove()}T(p?'Unpinned':'Pinned')}
+function cO(i){var e=document.getElementById('tx-'+i);if(e){navigator.clipboard.writeText(e.textContent);T('Copied')}}
+
+// Timeline
+var tld=[],tlH=3,tlZv=1,tlEvCentroid=null;function esc(v){return String(v??'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
+function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function uZUI(){var z=document.getElementById('tlZ'),p=document.getElementById('tlZP');if(z)z.value=tlZv;if(p)p.textContent=Math.round(tlZv*100)+'%'}
+function tlFindEventCenter(ev,st,ms){
+  // Find the weighted centroid of all events as a 0-1 ratio of the timeline
+  if(!ev||!ev.length)return 1; // default to right (now)
+  var sum=0,count=0;
+  ev.forEach(function(e){var t=new Date(e.ts)-st;var r=t/ms;sum+=r;count++});
+  return clamp(sum/count,0,1);
+}
+function sTLZ(v,r){
+  var t=document.querySelector('#tCon .tl-tracks');
+  // If no explicit ratio, use event centroid (smart focus) instead of viewport center
+  var ratio=r;
+  if(ratio===undefined||ratio===null){
+    if(t&&tlEvCentroid!==null){
+      var lw=100;
+      // Convert centroid (0-1 of event range) to scroll ratio
+      ratio=(tlEvCentroid*t.scrollWidth)/Math.max(1,t.scrollWidth);
+    }else{
+      ratio=t?((t.scrollLeft+t.clientWidth/2)/Math.max(1,t.scrollWidth)):1;
+    }
+  }
+  tlZv=clamp(parseFloat(v)||1,1,12);uZUI();rTL(tld,tlH);
+  requestAnimationFrame(function(){
+    var nt=document.querySelector('#tCon .tl-tracks');
+    if(nt)nt.scrollLeft=Math.max(0,ratio*nt.scrollWidth-nt.clientWidth/2);
+  });
+}
+function zTL(d){sTLZ(tlZv*(d>0?1.3:1/1.3))}function rTLZ(){sTLZ(1,.5)}
+function tlScrollToEvents(){
+  // Scroll timeline to center on the event cluster
+  var t=document.querySelector('#tCon .tl-tracks');if(!t||tlEvCentroid===null)return;
+  var lw=100;
+  var targetScroll=tlEvCentroid*(t.scrollWidth-lw);
+  t.scrollTo({left:Math.max(0,targetScroll-t.clientWidth/2+lw),behavior:'smooth'});
+}
+async function lTL(h,b){tlH=h;if(b){document.querySelectorAll('.tl-rng button').forEach(function(p){p.classList.remove('on')});b.classList.add('on')}var r=await(await fetch('/api/timeline?hours='+h)).json();tld=r.events||[];document.getElementById('tC').textContent=tld.length+' events';rTL(tld,h);
+  requestAnimationFrame(function(){
+    var t=document.querySelector('#tCon .tl-tracks');
+    if(t){if(tld.length)tlScrollToEvents();else t.scrollLeft=t.scrollWidth}
+  });
 }
 
-(async()=>{const s=await(await fetch('/api/settings')).json();if(s.setup_done==='true')document.getElementById('setupOv')?.remove();bCG(await(await fetch('/api/cameras')).json());await loadCachedFeed();sse();try{uGPU(await(await fetch('/api/gpu')).json())}catch(e){};const f=await(await fetch('/api/focus')).json();focus=f.focus;if(focus){document.getElementById('gF').textContent='Focus: '+focus;document.getElementById('releaseFocusBtn').style.display='flex'}})();
-setInterval(()=>document.getElementById('clk').textContent=new Date().toLocaleTimeString(),1000);
+// Timeline tooltip (one-time setup)
+var tlTipEl=document.getElementById('tlTip');
+var _tlTipRaf=0;
+function tlShowTip(e,html){
+  if(!tlTipEl||_tlTipRaf)return;
+  _tlTipRaf=requestAnimationFrame(function(){_tlTipRaf=0;
+    tlTipEl.innerHTML=html;tlTipEl.style.display='block';
+    var x=e.clientX+12,y=e.clientY-10;
+    if(x+250>window.innerWidth)x=e.clientX-260;
+    if(y+100>window.innerHeight)y=e.clientY-100;
+    tlTipEl.style.left=x+'px';tlTipEl.style.top=y+'px';
+  });
+}
+function tlHideTip(){if(tlTipEl)tlTipEl.style.display='none'}
+
+// One-time timeline event delegation on tCon
+(function(){
+  var c=document.getElementById('tCon');if(!c)return;
+  c.addEventListener('click',function(e){
+    var ev=e.target.closest('.tl-ev');
+    if(ev){var ids=String(ev.dataset.ids||'').split(',').filter(Boolean);if(ids.length===1)sTD(ids[0]);else sTDC(ids)}
+  });
+  c.addEventListener('mousemove',function(e){
+    var ev=e.target.closest('.tl-ev');
+    if(ev){
+      var n=parseInt(ev.dataset.count)||1;
+      var html='<div class="tip-cam">'+ev.dataset.cam+(n>1?' \u2022 '+n+' events':'')+'</div>';
+      html+='<div class="tip-time">'+ev.dataset.time+'</div>';
+      if(ev.dataset.text)html+='<div class="tip-text">'+ev.dataset.text+'</div>';
+      tlShowTip(e,html);
+    }else{tlHideTip()}
+  });
+  c.addEventListener('mouseleave',tlHideTip);
+  // Ctrl+wheel zoom (one-time)
+  c.addEventListener('wheel',function(e){if(!(e.ctrlKey||e.metaKey||e.shiftKey))return;var t=c.querySelector('.tl-tracks');if(!t)return;e.preventDefault();var r=t.getBoundingClientRect(),x=clamp(e.clientX-r.left,0,r.width),ratio=(t.scrollLeft+x)/Math.max(1,t.scrollWidth);sTLZ(tlZv*(e.deltaY<0?1.12:.89),ratio)},{passive:false});
+})();
+
+function rTL(ev,h){
+  var c=document.getElementById('tCon');uZUI();
+  if(!ev||!ev.length){c.innerHTML='<div class="tl-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.4;margin-bottom:8px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><div>No events in the last '+h+'h</div></div>';tlEvCentroid=null;return}
+  var now=new Date(),st=new Date(now.getTime()-h*3600000),ms=now-st;
+  tlEvCentroid=tlFindEventCenter(ev,st,ms);
+  var lw=100,vp=Math.max(c.clientWidth-lw-20,400),tw=Math.round(Math.max(vp,vp*tlZv)),px=tw/ms;
+  var cm={};ev.forEach(function(e){(cm[e.cam]||(cm[e.cam]=[])).push(e)});
+  var ti=tlZv>=8?5:tlZv>=5?10:tlZv>=2.5?15:h<=3?15:h<=6?30:h<=12?60:120;
+  // Build HTML
+  var parts=['<div class="tl-ruler"><div class="tl-ruler-inner" style="width:'+(tw+lw)+'px;padding-left:'+lw+'px">'];
+  for(var t=new Date(st);t<=now;t=new Date(t.getTime()+ti*60000)){
+    var x=(t-st)*px;
+    parts.push('<div class="tl-tick" style="left:'+(lw+x)+'px">'+t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0')+'</div>');
+  }
+  parts.push('</div></div><div class="tl-tracks"><div class="tl-tracks-inner" style="width:'+(tw+lw)+'px">');
+  parts.push('<div class="tl-now" style="left:'+(lw+tw)+'px"></div>');
+  var camKeys=Object.keys(cm);
+  camKeys.forEach(function(cam){
+    var evs=cm[cam].slice().sort(function(a,b){return new Date(a.ts)-new Date(b.ts)});
+    var cls=[],mp=tlZv<1.5?16:tlZv<3?10:6;
+    evs.forEach(function(e){
+      var x=clamp((new Date(e.ts)-st)*px,0,tw);
+      var l=cls[cls.length-1];
+      if(l&&x-l.x<=mp){l.items.push(e);l.x=(l.x*(l.items.length-1)+x)/l.items.length;l.alert=l.alert||!!e.alert;l.pin=l.pin||!!e.pin}
+      else cls.push({x:x,items:[e],alert:!!e.alert,pin:!!e.pin});
+    });
+    parts.push('<div class="tl-lane"><div class="tl-label">'+esc(cam)+'</div><div class="tl-row">');
+    cls.forEach(function(cl){
+      var n=cl.items.length,f=cl.items[0],cs=cl.alert?'a':cl.pin?'p':'n';
+      var w=n>1?Math.min(16+Math.log2(n)*7,50):Math.min(8+tlZv*4,36);
+      if(tlZv>=6&&n===1)w=70;
+      var left=clamp(cl.x-w/2,0,Math.max(0,tw-w));
+      var ids=cl.items.map(function(e){return esc(e.id)}).join(',');
+      var label=n>1?n:(tlZv>=6?esc((f.text||'').slice(0,18)):'');
+      var timeStr='';
+      try{timeStr=new Date(f.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}catch(x){}
+      parts.push('<div class="tl-ev '+cs+(n>1?' cl':'')+'" style="left:'+left+'px;width:'+w+'px" data-ids="'+ids+'" data-cam="'+esc(cam)+'" data-time="'+timeStr+'" data-text="'+esc((f.text||'').slice(0,80))+'" data-count="'+n+'">'+label+'</div>');
+    });
+    parts.push('</div></div>');
+  });
+  parts.push('</div></div>');
+  c.innerHTML=parts.join('');
+}
+function sTDC(ids){if(ids.length)sTD(ids[0])}
+function sTD(id){
+  // Switch to feed tab and scroll to the event
+  var ftabs=document.querySelectorAll('.ftab');ftabs.forEach(function(t){t.classList.remove('on')});ftabs[0].classList.add('on');
+  document.querySelectorAll('.fi').forEach(function(f){f.style.display='flex'});
+  var el=document.getElementById('fi-'+id);
+  if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.background='rgba(10,132,255,.15)';setTimeout(function(){el.style.background=''},1500)}
+  else T('Event not in current feed')
+}
+
+// SSE
+function sse(){var es=new EventSource('/events');es.onmessage=function(e){var m=JSON.parse(e.data);if(m.type==='stream_start'){mkFI(m);var a=document.getElementById('ad-'+m.camera_id);if(a)a.style.display='block'}if(m.type==='stream_token')uTk(m);if(m.type==='feed_item'){dFI(m);llPush(llScore(m),m.camera_id);var a=document.getElementById('ad-'+m.camera_id);if(a)a.style.display='none'}if(m.type==='gpu')uG(m.data,m.rotation,m.load_warning)};es.onerror=function(){es.close();setTimeout(sse,3000)}}
+
+// Settings
+var SK=['model','ollama_url','prompt','max_tokens','inference_size','analysis_interval','alert_keywords','telegram_token','telegram_chat_id','telegram_quiet_start','telegram_quiet_end','telegram_min_interval','telegram_on_alert','telegram_on_all','motion_sensitivity','motion_enabled','snapshot_on_every','snapshot_quality','feed_show_stable','feed_max_items','retain_days','retain_max_obs','retain_max_snap_mb','thumb_retain_days','cleanup_interval_min'];
+async function lS(){var [s,cm]=await Promise.all([fetch('/api/settings').then(function(r){return r.json()}),fetch('/api/cameras').then(function(r){return r.json()})]);SK.forEach(function(k){var e=document.getElementById('s-'+k);if(!e)return;if(k==='alert_keywords'){try{e.value=JSON.parse(s[k]||'[]').join(', ')}catch(x){e.value=s[k]||''}}else if(e.type==='checkbox')e.checked=s[k]==='true';else e.value=s[k]||''});showSt=s.feed_show_stable!=='false';document.getElementById('cL').innerHTML=cm.map(function(c){return'<div class="clr"><span>'+c.name+'</span><span style="color:var(--soft);font:600 10px var(--mono)">'+c.source+'</span><button class="bt bg" style="padding:3px 10px;font-size:10px" onclick="eC(\''+c.id+"','"+c.name+"','"+c.source+'\')">Edit</button><button class="bt br" style="padding:3px 10px;font-size:10px" onclick="dC(\''+c.id+'\')">Remove</button></div>'}).join('')}
+async function svS(){var d={};SK.forEach(function(k){var e=document.getElementById('s-'+k);if(!e)return;if(k==='alert_keywords')d[k]=JSON.stringify(e.value.split(',').map(function(s){return s.trim()}).filter(Boolean));else if(e.type==='checkbox')d[k]=e.checked?'true':'false';else d[k]=e.value});await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});showSt=d.feed_show_stable==='true';T('Saved')}
+async function tgT(){T((await(await fetch('/api/test-telegram',{method:'POST'})).json()).ok?'Sent':'Failed')}
+
+var PRESETS=[
+  {name:'Security',ico:'🛡️',desc:'Threats, intruders, suspicious activity',prompt:"People count, actions, danger signs. Flag anything suspicious. One sentence."},
+  {name:'Detailed',ico:'🔍',desc:'Full scene breakdown',prompt:"Describe people, objects, vehicles, and actions in detail. Two sentences max."},
+  {name:'Alerts Only',ico:'🚨',desc:'Silent unless danger detected',prompt:"Only report if you see danger: violence, fire, weapons, break-in, injury. Otherwise reply: Clear."},
+  {name:'Traffic',ico:'🚗',desc:'Road and pedestrian monitoring',prompt:"Count vehicles and pedestrians. Note accidents, congestion, or jaywalking. One sentence."},
+  {name:'Retail',ico:'🏪',desc:'Store and customer activity',prompt:"Count customers, note crowding levels, detect potential theft or unusual behavior. One sentence."},
+  {name:'Home',ico:'🏠',desc:'Family, packages, visitors',prompt:"Identify who is visible, note packages, strangers, or open doors/windows. One sentence."},
+  {name:'Parking',ico:'🅿️',desc:'Lot occupancy and events',prompt:"Count parked cars, note available spots, detect break-ins or accidents. One sentence."},
+  {name:'Pet Watch',ico:'🐾',desc:'Track pets and animals',prompt:"Identify any animals visible, their activity and location. Note if pets are in restricted areas. One sentence."},
+  {name:'Minimal',ico:'⚡',desc:'Ultra-short, fast inference',prompt:"One sentence max. What changed?"}
+];
+var activePreset=-1;
+function initPresets(){
+  var el=document.getElementById('promptPresets');if(!el)return;
+  var cur=document.getElementById('s-prompt').value;
+  activePreset=PRESETS.findIndex(function(p){return p.prompt===cur});
+  el.innerHTML=PRESETS.map(function(p,i){return'<button class="preset-card'+(i===activePreset?' active':'')+'" onclick="setPreset('+i+')"><span class="pc-ico">'+p.ico+'</span><span class="pc-name">'+p.name+'</span><span class="pc-desc">'+p.desc+'</span></button>'}).join('');
+}
+function setPreset(i){document.getElementById('s-prompt').value=PRESETS[i].prompt;activePreset=i;initPresets();T('Preset: '+PRESETS[i].name)}
+function oAC(){document.getElementById('ce').value='';document.getElementById('cn').value='';document.getElementById('cso').value='';document.getElementById('cmT').textContent='Add Camera';document.getElementById('acM').classList.add('op')}
+function eC(i,n,s){document.getElementById('ce').value=i;document.getElementById('cn').value=n;document.getElementById('cso').value=s;document.getElementById('cmT').textContent='Edit';document.getElementById('acM').classList.add('op')}
+async function sC(){var i=document.getElementById('ce').value,n=document.getElementById('cn').value.trim(),s=document.getElementById('cso').value.trim();if(!n||!s){T('Fill fields');return}await fetch(i?'/api/cameras/'+i:'/api/cameras',{method:i?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:s})});cM();T(i?'Updated':'Added');lS();bCG(await(await fetch('/api/cameras')).json())}
+async function dC(i){if(!confirm('Remove?'))return;await fetch('/api/cameras/'+i,{method:'DELETE'});T('Removed');lS();bCG(await(await fetch('/api/cameras')).json())}
+async function lG(){var d=await(await fetch('/api/gallery')).json();document.getElementById('galG').innerHTML=d.length?d.map(function(s){return'<div class="gli" onclick="document.getElementById(\'xI\').src=\'/snapshot/'+s.path+'\';document.getElementById(\'xV\').classList.add(\'op\')"><img src="/snapshot/'+s.path+'" loading="lazy"></div>'}).join(''):'<div class="empty-state" style="grid-column:1/-1">No snapshots</div>'}
+async function lDS(){try{var d=await(await fetch('/api/data-stats')).json();document.getElementById('dS').innerHTML='<div style="flex:1"><div style="font-size:10px;color:var(--soft);text-transform:uppercase;font-weight:760;margin-bottom:2px">DB</div><div style="font-size:15px;font-weight:760">'+(d.db_size_mb||0)+' MB</div></div><div style="flex:1"><div style="font-size:10px;color:var(--soft);text-transform:uppercase;font-weight:760;margin-bottom:2px">Snaps</div><div style="font-size:15px;font-weight:760">'+(d.snap_size_mb||0)+' MB</div></div><div style="flex:1"><div style="font-size:10px;color:var(--soft);text-transform:uppercase;font-weight:760;margin-bottom:2px">Events</div><div style="font-size:15px;font-weight:760">'+(d.total_obs||0)+'</div></div>'}catch(e){}}
+async function rCl(){T('Cleaning...');await fetch('/api/cleanup',{method:'POST'});T('Done');lDS()}
+async function oVF(){document.getElementById('vfP').value='';document.getElementById('vfN').value='';document.getElementById('vfM').classList.add('op');var l=document.getElementById('vfL');l.innerHTML='<div style="padding:14px;color:var(--soft);text-align:center">Scanning...</div>';var f=await(await fetch('/api/video-files')).json();l.innerHTML=f.length?f.map(function(v){return'<div class="vfi" onclick="pVF(\''+v.path.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\',\''+v.name.replace(/'/g,"\\'")+'\')"><div style="flex:1"><div style="font-size:12px;font-weight:700">'+v.name+'</div><div style="font-size:10px;color:var(--soft)">'+v.size+' - '+v.dir+'</div></div></div>'}).join(''):'<div style="padding:14px;color:var(--soft);text-align:center">No files</div>'}
+function pVF(p,n){document.getElementById('vfP').value=p;document.getElementById('vfN').value=n.replace(/\.[^.]+$/,'')}
+async function aVF(){var p=document.getElementById('vfP').value.trim(),n=document.getElementById('vfN').value.trim()||'Video';if(!p){T('Enter path');return}await fetch('/api/cameras',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:p})});cM();T('Added');bCG(await(await fetch('/api/cameras')).json())}
+var qSI;async function qSc(){document.getElementById('scO').classList.add('op');document.getElementById('scOB').innerHTML='<div style="padding:14px;color:var(--soft);text-align:center">Scanning...</div>';document.getElementById('qSB').disabled=true;await fetch('/api/scan',{method:'POST'});qSI=setInterval(async function(){var r=await(await fetch('/api/scan')).json();var h='';r.usb.forEach(function(c){h+='<div class="sci"><span class="sct usb">USB</span><span class="scn">'+c.name+'</span><span class="scs">'+c.source+'</span><button class="sca" onclick="aSM(\''+c.name+"','"+c.source+'\')">+ Add</button></div>'});r.network.forEach(function(c){h+='<div class="sci"><span class="sct '+c.type+'">'+c.type.toUpperCase()+'</span><span class="scn">'+c.name+'</span><span class="scs">'+c.source+'</span><button class="sca" onclick="aSM(\''+c.name+"','"+c.source+'\')">+ Add</button></div>'});if(!h&&r.status==='done')h='<div style="padding:14px;color:var(--soft);text-align:center">None found</div>';document.getElementById('scOB').innerHTML=h;if(r.status==='done'){clearInterval(qSI);document.getElementById('qSB').disabled=false}},1500)}
+async function aSM(n,s){await fetch('/api/cameras',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:s})});T('Added: '+n);bCG(await(await fetch('/api/cameras')).json())}
+var sSI;async function sSc(){document.getElementById('scR').style.display='block';document.getElementById('scSt').textContent='Scanning...';document.getElementById('scL').innerHTML='';document.getElementById('scB').disabled=true;await fetch('/api/scan',{method:'POST'});sSI=setInterval(async function(){var r=await(await fetch('/api/scan')).json();document.getElementById('scSt').textContent=r.status;var h='';r.usb.forEach(function(c){h+='<div class="sci"><span class="sct usb">USB</span><span class="scn">'+c.name+'</span><button class="sca" onclick="aSM(\''+c.name+"','"+c.source+'\')">+</button></div>'});r.network.forEach(function(c){h+='<div class="sci"><span class="sct '+c.type+'">'+c.type.toUpperCase()+'</span><span class="scn">'+c.name+'</span><button class="sca" onclick="aSM(\''+c.name+"','"+c.source+'\')">+</button></div>'});document.getElementById('scL').innerHTML=h||'<div style="padding:10px;color:var(--soft);text-align:center">None</div>';if(r.status==='done'){clearInterval(sSI);document.getElementById('scB').disabled=false}},1500)}
+async function lC(){try{var items=await(await fetch('/api/recent-feed?limit=50')).json();if(!items.length)return;if(eS)eS.remove();items.reverse().forEach(function(d){evData[d.item_id]={camera_name:d.camera_name,time:d.time,thumb:d.thumb,text:d.text||'',is_alert:!!d.is_alert,no_change:false,alert_keywords:d.alert_keywords||[],motion:undefined};if(d.thumb&&d.camera_id)camThumbs[d.camera_id]=d.thumb;var v=document.createElement('div');v.className='fi'+(d.is_alert?' alert':'')+(d.pinned?' pinned-fi':'');v.id='fi-'+d.item_id;v.dataset.text=(d.text||'').toLowerCase();v.dataset.pinned=d.pinned?'1':'0';v.dataset.alert=d.is_alert?'1':'0';v.style.cursor='pointer';v.onclick=function(e){if(!e.target.closest('.fi-btns'))openEv(d.item_id)};var th=d.thumb?'<div class="fi-thumb"><img src="data:image/jpeg;base64,'+d.thumb+'"></div>':'';var badges=(d.is_alert?'<span class="fi-badge alert">Alert</span>':'<span class="fi-badge changed">Changed</span>')+(d.pinned?'<span class="fi-badge pin">Pinned</span>':'');var kws=d.alert_keywords&&d.alert_keywords.length?'<div class="fi-kws">'+d.alert_keywords.map(function(k){return'<span class="fi-kw">'+k+'</span>'}).join('')+'</div>':'';v.innerHTML=th+'<div class="fi-content"><div class="fi-row1"><span class="fi-cam">'+d.camera_name+'</span><span class="fi-time">'+d.time+'</span>'+badges+'</div>'+kws+'<div class="fi-text" id="tx-'+d.item_id+'">'+fmt(d.text)+'</div></div>';fS.prepend(v);tot++});document.getElementById('fN').textContent=tot}catch(e){}}
+
+// Init - parallel fetch for fast startup
+(async function(){
+  try{
+    // Fetch everything in parallel
+    var [sRes,camRes,gpuRes,focRes,paRes]=await Promise.all([
+      fetch('/api/settings').then(function(r){return r.json()}).catch(function(){return{}}),
+      fetch('/api/cameras').then(function(r){return r.json()}).catch(function(){return[]}),
+      fetch('/api/gpu').then(function(r){return r.json()}).catch(function(){return{available:false}}),
+      fetch('/api/focus').then(function(r){return r.json()}).catch(function(){return{focus:null}}),
+      fetch('/api/analysis-status').then(function(r){return r.json()}).catch(function(){return{paused:false}})
+    ]);
+    // Apply settings
+    if(sRes.setup_done==='true'){var o=document.getElementById('sov');if(o)o.remove()}
+    // Load recent feed first (populates camThumbs for strip thumbnails)
+    await lC();
+    // Build cameras + lifelines (uses camThumbs)
+    bCG(camRes);
+    // Start live updates
+    sse();
+    // Load timeline
+    lTL(3);
+    // GPU
+    try{uG(gpuRes)}catch(e){}
+    // Focus state
+    focus=focRes.focus;
+    if(focus){document.getElementById('gF').textContent='Focus: '+focus;document.getElementById('rfB').style.display='flex'}
+    // Pause state
+    if(paRes.paused){isPaused=true;document.getElementById('paT').textContent='Resume';document.getElementById('paB').style.borderColor='var(--red)';document.getElementById('paB').style.color='var(--red)'}
+  }catch(e){console.error('[Init]',e)}
+})();
+setInterval(function(){document.getElementById('clk').textContent=new Date().toLocaleTimeString()},1000);
 </script></body></html>
