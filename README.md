@@ -25,6 +25,12 @@ Mevin connects to your cameras (USB, RTSP, IP, or video files), captures frames,
 
 Everything stays on your machine. The only network calls are to your own Ollama instance and (optionally) the Telegram API for push notifications.
 
+
+
+<img width="2543" height="1353" alt="image" src="https://github.com/user-attachments/assets/bdeec7c6-88db-4151-9eea-83200c2f2763" />
+<img width="2559" height="1358" alt="image" src="https://github.com/user-attachments/assets/8ae147fe-235c-48dc-b81f-f466475daec0" />
+
+
 ## Features
 
 **Analysis** — multi-camera round-robin with per-camera focus lock, streaming token-by-token output, motion-gated inference to save GPU cycles, configurable prompt presets, smart response cleaning that strips VLM preamble and thinking blocks.
