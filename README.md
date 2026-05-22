@@ -29,6 +29,7 @@ Everything stays on your machine. The only network calls are to your own Ollama 
 
 <img width="2543" height="1353" alt="image" src="https://github.com/user-attachments/assets/bdeec7c6-88db-4151-9eea-83200c2f2763" />
 <img width="2559" height="1358" alt="image" src="https://github.com/user-attachments/assets/8ae147fe-235c-48dc-b81f-f466475daec0" />
+<img width="1759" height="1307" alt="image" src="https://github.com/user-attachments/assets/25ce3220-0d86-4c13-a7e8-327082d90cbd" />
 
 
 ## Features
