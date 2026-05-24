@@ -194,6 +194,8 @@ snapshots/          Saved alert frames (auto-created at runtime)
 - A camera source (USB, RTSP, HTTP, or video file)
 - NVIDIA GPU recommended — CPU inference works but is significantly slower
 
+
+
 ## License
 
-[MIT](LICENSE)
+Personal Use Only. See [LICENSE](LICENSE). For commercial licensing, please contact.
