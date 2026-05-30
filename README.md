@@ -4,7 +4,19 @@ NEW UPDATE
 NEW UPDATE
 NEW UPDATE
 NEW UPDATE
+Mevin Update — 2026-05-30
 
+    Situational understanding — each camera learns what's "normal," remembers what happened, and detects whether things are escalating or calming.
+    Board view — a card per camera: video, danger graph, current situation, its own feed.
+    Scene matching — cameras in the same zone are synthesized into one picture ("Big Picture").
+    Process isolation — analysis runs in a separate process, so the dashboard never freezes. With automatic fallback.
+    Real-time fix — always analyzes the freshest frame, never a stale one from the queue.
+    Shared MJPEG encoder — ~20× less load, no lag during analysis.
+    One-command install — install.bat / install.sh.
+    Auto camera discovery (ONVIF) — a Discover button finds cameras/NVRs and adds them all in one click.
+    Phone alerts (ntfy) — alongside Telegram, no account needed.
+    
+    
 # Mevin
 
 **Real-time situational video understanding — private, local, open-source.**
