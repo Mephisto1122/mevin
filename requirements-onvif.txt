@@ -1,0 +1,4 @@
+# Optional: enables "Discover Cameras" auto-discovery for ONVIF cameras & NVRs
+# Install with: pip install -r requirements-onvif.txt
+onvif-zeep
+wsdiscovery

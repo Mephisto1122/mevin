@@ -64,23 +64,83 @@ button,input,textarea{font-family:inherit}button{border:0;background:none;color:
 .cam-main-live .dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
 .cam-main-az{position:absolute;top:12px;right:12px;background:var(--orange);color:#111;font-size:10px;font-weight:800;border-radius:99px;padding:4px 10px;display:none}
 
-/* Per-camera lifelines */
-.ll-strip{display:flex;gap:4px;padding:0 16px 4px;overflow-x:auto;flex-shrink:0}
-.ll-cam{position:relative;flex:1;min-width:100px;height:36px;border-radius:10px;background:#0a0c0f;border:1px solid var(--line);overflow:hidden;cursor:pointer;transition:border-color .15s}
-.ll-cam:hover{border-color:var(--line2)}
-.ll-cam canvas{width:100%;height:100%;display:block}
-.ll-cam-info{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:3px 8px;pointer-events:none}
-.ll-cam-name{font-size:9px;font-weight:760;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.04em}
-.ll-cam-lvl{font:800 9px var(--mono);padding:1px 5px;border-radius:99px;background:rgba(0,0,0,.5)}
-.ll-cam-lvl.low{color:#32d74b}.ll-cam-lvl.mild{color:#ffd60a}.ll-cam-lvl.elevated{color:var(--orange)}.ll-cam-lvl.high{color:var(--red)}
+/* ===== VIEW SWITCH ===== */
+.view-switch{display:flex;align-items:center;gap:8px;padding:10px 16px;flex-shrink:0;border-bottom:1px solid var(--line)}
+.vsb{height:32px;padding:0 16px;border-radius:99px;font-size:13px;font-weight:660;color:var(--soft);background:#151820;border:1px solid var(--line)}
+.vsb:hover{color:#fff;background:#20242d}.vsb.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.view-actions{margin-left:auto;display:flex;gap:6px}
+
+/* ===== BOARD VIEW ===== */
+.board{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:20px}
+.zone{display:flex;flex-direction:column;gap:10px}
+.zone-head{display:flex;align-items:center;gap:10px}
+.zone-name{font-size:14px;font-weight:760;color:#fff;letter-spacing:-.02em}
+.zone-count{font:650 11px var(--mono);color:var(--soft)}
+.zone-line{flex:1;height:1px;background:var(--line)}
+/* Big-picture banner per zone */
+.zone-picture{display:none;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:16px;background:linear-gradient(135deg,rgba(10,132,255,.12),rgba(10,132,255,.04));border:1px solid rgba(10,132,255,.25)}
+.zone-picture.show{display:flex}
+.zone-picture.danger{background:linear-gradient(135deg,rgba(255,0,0,.14),rgba(255,0,0,.04));border-color:rgba(255,0,0,.3)}
+.zp-icon{width:24px;height:24px;flex-shrink:0;color:var(--blue);margin-top:1px}
+.zone-picture.danger .zp-icon{color:#ff5a5a}
+.zp-body{flex:1;min-width:0}
+.zp-label{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:3px}
+.zone-picture.danger .zp-label{color:#ff7a7a}
+.zp-text{font-size:14px;font-weight:600;line-height:1.5;color:#fff}
+.zp-time{font:600 10px var(--mono);color:var(--soft);flex-shrink:0;margin-top:2px}
+/* Camera cards grid */
+.zone-cams{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.cam-card{background:#101319;border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s}
+.cam-card:hover{border-color:var(--line2)}
+.cam-card.alert{border-color:rgba(255,0,0,.45);box-shadow:0 0 0 1px rgba(255,0,0,.15)}
+.cc-video{position:relative;aspect-ratio:16/9;background:#050608;cursor:pointer;overflow:hidden}
+.cc-video img{width:100%;height:100%;object-fit:cover;display:block}
+.cc-vlabel{position:absolute;bottom:0;left:0;right:0;padding:24px 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.85));display:flex;justify-content:space-between;align-items:flex-end}
+.cc-name{font-size:13px;font-weight:720;color:#fff}
+.cc-live{display:flex;align-items:center;gap:4px;font-size:9px;font-weight:800;color:#fff;background:rgba(0,0,0,.5);border-radius:99px;padding:3px 8px}
+.cc-live .dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
+.cc-llcanvas{width:100%;height:30px;display:block;background:#0a0c0f;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+/* Pinned situation - always visible */
+.cc-situation{padding:11px 13px;display:flex;gap:9px;align-items:flex-start;border-bottom:1px solid var(--line);min-height:54px}
+.cc-sit-dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:3px;box-shadow:0 0 8px currentColor;transition:background .3s}
+.cc-sit-body{flex:1;min-width:0}
+.cc-sit-text{font-size:13px;font-weight:600;line-height:1.45;color:#fff}
+.cc-sit-meta{display:flex;align-items:center;gap:7px;margin-top:4px}
+.cc-sit-trend{font-size:9px;font-weight:800;padding:2px 7px;border-radius:99px;letter-spacing:.03em}
+.cc-sit-trend.rising{background:var(--redSoft);color:#ff8a8a}.cc-sit-trend.falling{background:rgba(50,215,75,.15);color:#9ff0ad}.cc-sit-trend.stable{background:rgba(255,255,255,.07);color:var(--soft)}
+.cc-sit-time{font:600 10px var(--mono);color:var(--soft)}
+.cc-sit-waiting{font-size:12px;color:var(--soft);font-style:italic}
+/* Per-camera feed */
+.cc-feed{max-height:160px;overflow-y:auto;padding:6px 8px;display:flex;flex-direction:column;gap:4px}
+.cc-fi{display:flex;gap:7px;padding:6px 8px;border-radius:10px;background:#161a20;cursor:pointer;transition:background .12s}
+.cc-fi:hover{background:#1c212a}
+.cc-fi.alert{background:#1c1012}
+.cc-fi-time{font:650 9px var(--mono);color:var(--soft);flex-shrink:0;padding-top:1px}
+.cc-fi-text{font-size:11.5px;line-height:1.4;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.cc-fi-text .hl-rd{color:#fff;background:var(--red);font-weight:800;border-radius:3px;padding:0 3px}
+.cc-fi-text .hl-people{color:#8fc8ff;font-weight:700}
+.cc-fi-empty{font-size:11px;color:var(--soft);text-align:center;padding:14px}
+@media(max-width:700px){.zone-cams{grid-template-columns:1fr}.view-actions{flex-wrap:wrap}}
+/* Situation banner - live situational read at top of main camera */
+.situation-banner{position:absolute;top:12px;left:12px;right:12px;display:none;align-items:center;gap:8px;padding:8px 14px;border-radius:14px;background:rgba(10,12,15,.78);backdrop-filter:blur(12px);border:1px solid var(--line2);max-width:calc(100% - 24px)}
+.situation-banner.show{display:flex}
+.sit-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 8px currentColor}
+.sit-text{font-size:13px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.sit-trend{font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;flex-shrink:0;letter-spacing:.03em}
+.sit-trend.rising{background:var(--redSoft);color:#ff8a8a}
+.sit-trend.falling{background:rgba(50,215,75,.15);color:#9ff0ad}
+.sit-trend.stable{background:rgba(255,255,255,.08);color:var(--soft)}
+
+/* Danger lifeline */
+.lifeline-wrap{padding:0 16px 4px;flex-shrink:0}
+.lifeline-wrap canvas{width:100%;height:40px;border-radius:10px;background:#0a0c0f;border:1px solid var(--line);display:block}
 
 /* Small camera strip */
 .cam-strip{display:flex;gap:6px;padding:0 16px 6px;overflow-x:auto;flex-shrink:0}
 .cam-sm{position:relative;width:130px;min-width:130px;border-radius:12px;overflow:hidden;border:1px solid var(--line);cursor:pointer;transition:all .14s;flex-shrink:0}
 .cam-sm:hover{border-color:var(--line2);transform:translateY(-1px)}
 .cam-sm.active{border-color:rgba(10,132,255,.6);box-shadow:0 0 0 1px rgba(10,132,255,.2)}
-.cam-sm img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#0a0c0f}
-.cam-sm img[src=""]{visibility:hidden}
+.cam-sm img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
 .cam-sm-label{position:absolute;bottom:0;left:0;right:0;padding:16px 8px 6px;background:linear-gradient(transparent,rgba(0,0,0,.85));font-size:11px;font-weight:700;color:#fff}
 .cam-sm-acts{position:absolute;top:4px;right:4px;display:flex;gap:3px;opacity:0;transition:opacity .12s}
 .cam-sm:hover .cam-sm-acts{opacity:1}
@@ -100,50 +160,32 @@ button,input,textarea{font-family:inherit}button{border:0;background:none;color:
 .bot-tabs{display:flex;gap:2px;padding:0 16px;flex-shrink:0}
 .btab{padding:8px 14px;border-radius:12px 12px 0 0;font-size:12px;font-weight:660;color:var(--soft);border:1px solid transparent;border-bottom:0;transition:all .12s}
 .btab:hover{color:var(--muted)}.btab.on{background:var(--panel);border-color:var(--line);color:#fff}
-.bot-area{max-height:220px;overflow:hidden;display:flex;flex-direction:column;background:var(--panel);border-top:1px solid var(--line);flex-shrink:0}
+.bot-area{max-height:200px;overflow:hidden;display:flex;flex-direction:column;background:var(--panel);border-top:1px solid var(--line);flex-shrink:0}
 .bot-content{flex:1;overflow-y:auto;overflow-x:auto;padding:8px 16px}
 
 /* Timeline in bot area */
-.tl-bar{display:flex;gap:8px;padding:8px 16px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.tl-bar{display:flex;gap:8px;padding:10px 16px;align-items:center;flex-shrink:0;flex-wrap:wrap}
 .tl-bar span{font-size:13px;font-weight:700;color:#fff}
 .tl-rng{display:flex;gap:2px;padding:3px;background:#151820;border:1px solid var(--line);border-radius:99px}
-.tl-rng button{height:26px;padding:0 10px;border-radius:99px;font-size:11px;font-weight:660;color:var(--soft);transition:all .12s}.tl-rng button:hover{background:#20242d;color:#fff}.tl-rng button.on{background:#292e38;color:#fff}
-.tl-zm{display:flex;gap:4px;align-items:center;margin-left:auto;padding:3px;background:#151820;border:1px solid var(--line);border-radius:99px}
-.tl-zm button{width:26px;height:26px;border-radius:99px;font-size:16px;font-weight:700;color:var(--soft);transition:all .12s}.tl-zm button:hover{background:#20242d;color:#fff}
-.tl-zm input[type=range]{width:90px;height:4px;accent-color:var(--blue)}
+.tl-rng button{height:26px;padding:0 10px;border-radius:99px;font-size:11px;font-weight:660;color:var(--soft)}.tl-rng button:hover{background:#20242d;color:#fff}.tl-rng button.on{background:#292e38;color:#fff}
+.tl-zm{display:flex;gap:6px;align-items:center;margin-left:auto;padding:3px;background:#151820;border:1px solid var(--line);border-radius:99px}
+.tl-zm button{width:26px;height:26px;border-radius:99px;font-size:16px;font-weight:700;color:var(--soft)}.tl-zm button:hover{background:#20242d;color:#fff}
+.tl-zm input[type=range]{width:100px;height:4px;accent-color:var(--blue)}
 .tl-zm-v{font:700 11px var(--mono);color:var(--soft);min-width:36px;text-align:right}
 .tl-cnt{font:650 11px var(--mono);color:var(--soft)}
 .tl-body{flex:1;overflow:auto;padding:0 16px 16px}
-.tl-ruler{height:22px;border-bottom:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;flex-shrink:0}
+.tl-ruler{height:24px;border-bottom:1px solid var(--line);position:relative;overflow:hidden;flex-shrink:0}
 .tl-ruler-inner{position:relative;min-width:100%}
-.tl-tick{position:absolute;height:22px;display:flex;align-items:center;padding-left:5px;font:650 9px var(--mono);color:rgba(255,255,255,.25);border-left:1px solid rgba(255,255,255,.05)}
-.tl-tracks{overflow:auto;position:relative}
-.tl-tracks-inner{min-width:100%;position:relative}
-.tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:4;pointer-events:none;opacity:.6}
-.tl-now::before{content:'NOW';position:absolute;top:4px;left:-14px;font:800 7px var(--mono);color:var(--red);letter-spacing:.06em}
-.tl-lane{display:flex;height:40px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s}
-.tl-lane:hover{background:rgba(255,255,255,.02)}
-.tl-lane:last-child{border-bottom:none}
-.tl-label{width:100px;min-width:100px;font-size:10px;font-weight:700;color:var(--muted);padding:0 10px;background:rgba(11,12,15,.95);border-right:1px solid rgba(255,255,255,.06);display:flex;align-items:center;position:sticky;left:0;z-index:3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;backdrop-filter:blur(4px)}
-.tl-label::before{content:'';width:3px;height:16px;border-radius:99px;margin-right:7px;flex-shrink:0}
-.tl-lane:nth-child(6n+1) .tl-label::before{background:var(--blue)}
-.tl-lane:nth-child(6n+2) .tl-label::before{background:var(--green)}
-.tl-lane:nth-child(6n+3) .tl-label::before{background:var(--orange)}
-.tl-lane:nth-child(6n+4) .tl-label::before{background:#c89400}
-.tl-lane:nth-child(6n+5) .tl-label::before{background:#8a82ff}
-.tl-lane:nth-child(6n+6) .tl-label::before{background:#ff6b8a}
+.tl-tick{position:absolute;height:24px;display:flex;align-items:center;padding-left:5px;font:650 10px var(--mono);color:var(--soft);border-left:1px solid var(--line)}
+.tl-tracks{overflow:auto}
+.tl-tracks-inner{min-width:100%}
+.tl-lane{display:flex;height:44px;border-bottom:1px solid var(--line)}
+.tl-label{width:110px;min-width:110px;font-size:11px;font-weight:700;color:var(--muted);padding:0 10px;background:var(--bg);border-right:1px solid var(--line);display:flex;align-items:center;position:sticky;left:0;z-index:2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tl-row{flex:1;position:relative;height:100%}
-.tl-ev{position:absolute;top:12px;height:16px;min-width:6px;padding:0 5px;border-radius:4px;font:800 9px var(--mono);color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;cursor:pointer;transition:all .1s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-.tl-ev:hover{transform:translateY(-1px);filter:brightness(1.25);z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.5)}
-.tl-ev.n{background:rgba(10,132,255,.6)}.tl-ev.n:hover{background:var(--blue)}
-.tl-ev.a{background:var(--red);animation:alertPulse 2s ease-in-out infinite}
-.tl-ev.p{background:#c89400}
-.tl-ev.cl{box-shadow:0 1px 4px rgba(0,0,0,.4)}
-@keyframes alertPulse{0%,100%{box-shadow:0 1px 3px rgba(255,0,0,.3)}50%{box-shadow:0 1px 8px rgba(255,0,0,.6)}}
+.tl-ev{position:absolute;top:14px;height:16px;min-width:8px;padding:0 5px;border-radius:99px;font:800 9px var(--mono);color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;cursor:pointer}.tl-ev:hover{filter:brightness(1.2);z-index:5}
+.tl-ev.n{background:var(--blue);opacity:.7}.tl-ev.n:hover{opacity:1}.tl-ev.a{background:var(--red)}.tl-ev.p{background:#c89400}
+.tl-ev.cl{box-shadow:0 0 0 2px rgba(255,255,255,.04)}
 .tl-empty{text-align:center;padding:40px;color:var(--soft);font-size:13px}
-/* Timeline tooltip */
-.tl-tip{position:fixed;background:#1e222a;border:1px solid var(--line2);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--text);max-width:240px;z-index:60;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.5);line-height:1.5;display:none}
-.tl-tip .tip-cam{font-weight:760;color:#fff;margin-bottom:2px}.tl-tip .tip-time{font:650 10px var(--mono);color:var(--soft)}.tl-tip .tip-text{margin-top:4px;color:var(--muted)}
 
 /* Feed items - compact for side panel */
 .fi{display:flex;gap:10px;padding:10px;background:#12151b;border:1px solid var(--line);border-radius:16px;margin-bottom:6px;position:relative;transition:all .14s}
@@ -182,34 +224,18 @@ button,input,textarea{font-family:inherit}button{border:0;background:none;color:
 .gt{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}.gtg{font-size:10px;background:#1d212a;color:var(--muted);padding:3px 8px;border-radius:99px;border:1px solid var(--line)}
 .gn{font-size:12px;color:var(--muted);padding:8px 10px;background:#0d0f13;border-radius:10px;line-height:1.5}
 .glg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}.gli{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);cursor:pointer;transition:all .14s}.gli:hover{border-color:var(--line2)}.gli img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
-.sc{background:#12151b;border:1px solid var(--line);border-radius:20px;padding:24px;margin-bottom:12px;transition:all .2s}.sc:hover{border-color:var(--line2);background:#141820}
-.stl{font-size:17px;font-weight:760;margin-bottom:2px;display:flex;align-items:center;gap:8px}.stl .sec-ico{width:28px;height:28px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.sds{font-size:13px;color:var(--soft);margin-bottom:14px;line-height:1.5}
-.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sf{display:flex;flex-direction:column;gap:5px}.sfu{grid-column:1/-1}
+.sc{background:#12151b;border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:10px;transition:all .14s}.sc:hover{border-color:var(--line2)}
+.stl{font-size:16px;font-weight:760;margin-bottom:3px}.sds{font-size:13px;color:var(--soft);margin-bottom:12px}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sf{display:flex;flex-direction:column;gap:4px}.sfu{grid-column:1/-1}
 .sl{font-size:10px;font-weight:760;color:var(--soft);text-transform:uppercase;letter-spacing:.08em}
-.si{height:42px;border-radius:12px;border:1px solid var(--line);background:#0d0f13;color:var(--text);font-size:13px;padding:0 14px;transition:border-color .15s,box-shadow .15s}.si:focus{border-color:rgba(10,132,255,.5);box-shadow:0 0 0 3px rgba(10,132,255,.1)}textarea.si{height:auto;min-height:70px;padding:12px 14px;resize:vertical;font:600 12px/1.5 var(--mono)}
-.srw{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
-/* Toggle switch */
-.sch{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}.sch input{display:none}
-.tog{width:38px;height:22px;border-radius:99px;background:#2a2e38;position:relative;transition:background .2s;flex-shrink:0}.tog::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#666;transition:all .2s}
-.sch input:checked+.tog{background:var(--blue)}.sch input:checked+.tog::after{left:19px;background:#fff}
-.bt{padding:8px 18px;border-radius:99px;font-size:13px;font-weight:660;border:1px solid transparent;transition:all .15s}
-.bb{background:var(--blue);color:#fff}.bb:hover{background:#2994ff;box-shadow:0 4px 12px rgba(10,132,255,.3)}
+.si{height:40px;border-radius:12px;border:1px solid var(--line);background:#0d0f13;color:var(--text);font-size:13px;padding:0 12px}.si:focus{border-color:rgba(10,132,255,.5)}textarea.si{height:auto;min-height:70px;padding:10px 12px;resize:vertical;font:600 12px/1.5 var(--mono)}
+.srw{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+.sch{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}.sch input{accent-color:var(--blue);width:16px;height:16px}
+.bt{padding:8px 18px;border-radius:99px;font-size:13px;font-weight:660;border:1px solid transparent;transition:all .12s}
+.bb{background:var(--blue);color:#fff}.bb:hover{background:#2994ff}
 .bg{background:#151820;border-color:var(--line);color:var(--muted)}.bg:hover{background:#20242d;color:#fff}
 .br{background:rgba(255,0,0,.08);border-color:rgba(255,0,0,.3);color:#f77}.br:hover{background:rgba(255,0,0,.15);color:#fff}
-.clr{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.clr span:first-child{flex:1;font-weight:700;font-size:13px}
-/* Preset cards */
-.preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.preset-card{background:#0d0f13;border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .15s;text-align:left;display:flex;flex-direction:column;gap:4px}
-.preset-card:hover{border-color:rgba(10,132,255,.4);background:#111622;transform:translateY(-1px)}
-.preset-card.active{border-color:var(--blue);background:rgba(10,132,255,.08);box-shadow:0 0 0 1px rgba(10,132,255,.15)}
-.preset-card .pc-ico{display:flex;align-items:center;color:var(--blue);margin-bottom:2px}
-.preset-card .pc-ico svg{display:block}
-.preset-card .pc-name{font-size:12px;font-weight:760;color:#fff}
-.preset-card .pc-desc{font-size:10px;color:var(--soft);line-height:1.4}
-/* Settings page centering */
-.settings-wrap{max-width:680px;margin:0 auto;padding-top:4px}
-.settings-save{position:sticky;bottom:0;padding:16px 0 24px;background:linear-gradient(transparent,var(--bg) 30%);z-index:5;display:flex;gap:8px}
+.clr{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.clr span:first-child{flex:1;font-weight:700;font-size:13px}
 .sci{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0d0f13;border:1px solid var(--line);border-radius:12px;margin-bottom:5px}
 .sct{font-size:9px;font-weight:800;padding:3px 7px;border-radius:99px;text-transform:uppercase}.sct.usb{background:rgba(50,215,75,.12);color:#b6ffc2}.sct.rtsp{background:var(--blueSoft);color:#bcdfff}.sct.http{background:rgba(255,159,10,.13);color:#ffd391}
 .scn{font-size:12px;font-weight:700;flex:1}.scs{font:600 10px var(--mono);color:var(--soft);flex:2}
@@ -257,7 +283,7 @@ button,input,textarea{font-family:inherit}button{border:0;background:none;color:
 .scta{height:42px;padding:0 24px;background:var(--blue);color:#fff;font-size:14px;font-weight:760;border-radius:99px;margin-top:18px}.scta:hover{background:#2994ff}
 .skip{display:block;margin-top:8px;color:var(--soft);font-size:12px}.skip:hover{color:#fff}
 
-@media(max-width:800px){.split{flex-direction:column}.feed-panel{width:100%!important;max-width:100%!important;height:40vh;border-right:0;border-bottom:1px solid var(--line)}.splitter{display:none}.cam-strip{flex-wrap:wrap}.sg{grid-template-columns:1fr}.gg{grid-template-columns:1fr}.preset-grid{grid-template-columns:repeat(2,1fr)}.settings-wrap{max-width:100%}}
+@media(max-width:800px){.split{flex-direction:column}.feed-panel{width:100%!important;max-width:100%!important;height:40vh;border-right:0;border-bottom:1px solid var(--line)}.splitter{display:none}.cam-strip{flex-wrap:wrap}.sg{grid-template-columns:1fr}.gg{grid-template-columns:1fr}}
 </style></head><body>
 
 <div class="so" id="sov"><div class="sox"><h1>Mevin</h1><p class="sub">Private camera monitoring, running locally.</p>
@@ -274,34 +300,32 @@ button,input,textarea{font-family:inherit}button{border:0;background:none;color:
 <div class="main">
 <!-- MONITOR: Split Layout -->
 <div class="pg on" id="pg-m">
-<div class="split">
-  <!-- LEFT: Feed -->
+<!-- View toggle: Board (per-camera situational) vs Focus (one big camera + timeline) -->
+<div class="view-switch"><button class="vsb on" id="vsBoard" onclick="setView('board')">Board</button><button class="vsb" id="vsFocus" onclick="setView('focus')">Focus</button><div class="view-actions"><button class="qb" onclick="oAC()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>Add</button><button class="qb" onclick="oOnvif()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>Discover</button><button class="qb" onclick="oVF()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Video</button><button class="qb pr" onclick="qSc()" id="qSB"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Scan</button><button class="qb" id="paB" onclick="tPa()"><span id="paT">Pause</span></button></div></div>
+
+<!-- BOARD VIEW: per-camera cards grouped by zone -->
+<div class="board" id="boardView"></div>
+
+<!-- FOCUS VIEW: main camera + global feed + timeline -->
+<div class="split" id="focusView" style="display:none">
   <div class="feed-panel" id="feedPanel">
     <div class="feed-head"><h3>Events</h3><span class="fc" id="fN">0</span></div>
     <div class="feed-tabs"><button class="ftab on" data-t="f" onclick="fTab(this)">All</button><button class="ftab" data-t="al" onclick="fTab(this)">Alerts</button><button class="ftab" data-t="pn" onclick="fTab(this)">Pinned</button></div>
     <div class="feed-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search..." id="sI" oninput="dSr()"></div>
     <div class="feed-scroll" id="fS"><div class="empty-state" id="eS">Events appear once monitoring starts.</div></div>
   </div>
-
-  <!-- DRAG HANDLE -->
   <div class="splitter" id="splitter"></div>
-
-  <!-- RIGHT: Cameras + bottom -->
   <div class="cam-panel">
-    <!-- Main camera -->
     <div class="cam-main"><div class="cam-main-view" id="mainCam">
       <img id="mainImg" src="about:blank"><div class="cam-main-label"><span class="cam-main-name" id="mainName">No camera</span><span class="cam-main-live"><span class="dot"></span>LIVE</span></div><div class="cam-main-az" id="mainAz">Checking</div>
+      <div class="situation-banner" id="sitBanner"><span class="sit-dot" id="sitDot"></span><span class="sit-text" id="sitText"></span><span class="sit-trend" id="sitTrend"></span></div>
     </div></div>
-    <!-- Per-camera lifelines -->
-    <div class="ll-strip" id="llStrip"></div>
-    <!-- Camera strip -->
+    <div class="lifeline-wrap"><canvas id="lifeline" height="40"></canvas></div>
     <div class="cam-strip" id="camStrip"></div>
-    <!-- Quick actions -->
-    <div class="qa"><button class="qb" onclick="oAC()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m-7-7h14"/></svg>Add</button><button class="qb" onclick="oVF()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Video</button><button class="qb pr" onclick="qSc()" id="qSB"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Scan</button><button class="qb" id="rfB" style="display:none;border-color:var(--blue);color:var(--blue)" onclick="rF()">Release Focus</button><button class="qb" id="paB" onclick="tPa()"><span id="paT">Pause</span></button></div>
-    <!-- Bottom tabs -->
+    <div class="qa"><button class="qb" id="rfB" style="display:none;border-color:var(--blue);color:var(--blue)" onclick="rF()">Release Focus</button></div>
     <div class="bot-tabs"><button class="btab on" data-t="tl" onclick="bTab(this)">Timeline</button></div>
     <div class="bot-area">
-      <div class="tl-bar"><span>Timeline</span><div class="tl-rng"><button class="on" onclick="lTL(3,this)">3h</button><button onclick="lTL(6,this)">6h</button><button onclick="lTL(12,this)">12h</button><button onclick="lTL(24,this)">24h</button></div><span class="tl-cnt" id="tC">0</span><div class="tl-zm"><button onclick="zTL(-1)">−</button><input type="range" min="1" max="12" step=".25" value="1" id="tlZ" oninput="sTLZ(this.value)"><button onclick="zTL(1)">+</button><span class="tl-zm-v" id="tlZP">100%</span><button onclick="rTLZ()" style="font-size:10px;padding:0 7px">Fit</button><button onclick="tlScrollToEvents()" style="font-size:10px;padding:0 7px;color:var(--blue)">⎯⊙</button></div></div>
+      <div class="tl-bar"><span>Timeline</span><div class="tl-rng"><button class="on" onclick="lTL(3,this)">3h</button><button onclick="lTL(6,this)">6h</button><button onclick="lTL(12,this)">12h</button><button onclick="lTL(24,this)">24h</button></div><div class="tl-zm"><button onclick="zTL(-1)">-</button><input type="range" min="1" max="12" step=".25" value="1" id="tlZ" oninput="sTLZ(this.value)"><button onclick="zTL(1)">+</button><span class="tl-zm-v" id="tlZP">100%</span><button onclick="rTLZ()" style="font-size:11px;padding:0 8px">Fit</button></div><span class="tl-cnt" id="tC">0</span></div>
       <div class="bot-content" id="tCon"></div>
     </div>
   </div>
@@ -322,23 +346,29 @@ button,input,textarea{font-family:inherit}button{border:0;background:none;color:
 <div class="pg scroll-page" id="pg-gl"><div class="sec-header"><h2>Snapshots</h2></div><div id="galG" class="glg" style="margin-top:8px"></div></div>
 
 <!-- SETTINGS -->
-<div class="pg scroll-page" id="pg-s"><div class="sec-header" style="text-align:center"><h2>Settings</h2><p>Configure your monitoring system</p></div><div class="settings-wrap">
-<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(10,132,255,.12);color:var(--blue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3"/></svg></span>Model</div><div class="sds">Vision model and inference settings</div><div class="sg"><div class="sf"><span class="sl">Processor</span><input class="si" id="s-model" placeholder="gemma3:4b"></div><div class="sf"><span class="sl">URL</span><input class="si" id="s-ollama_url" placeholder="http://localhost:11434"></div><div class="sf"><span class="sl">Max Tokens</span><input class="si" id="s-max_tokens" type="number"></div><div class="sf"><span class="sl">Image Size</span><input class="si" id="s-inference_size" type="number"></div><div class="sf"><span class="sl">Interval (sec)</span><input class="si" id="s-analysis_interval" type="number" step="0.5"></div><div class="sf sfu"><span class="sl">Prompt</span><textarea class="si" id="s-prompt" rows="3"></textarea></div><div class="sf sfu"><span class="sl" style="margin-bottom:6px">Quick Presets</span><div class="preset-grid" id="promptPresets"></div></div></div></div>
-<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(50,215,75,.1);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M2 12.5C5.5 7 10 5.5 13 8c3 2.5 2.5 7.5-1 10"/><path d="M7 16.5c2-2.5 4-3 5.5-1.5 1.5 1.5 1 4-1.5 5.5"/><circle cx="12" cy="18" r="1"/></svg></span>Motion Detection</div><div class="sds">Skip analysis when nothing moves</div><div class="sg"><div class="sf"><span class="sl">Sensitivity threshold</span><input class="si" id="s-motion_sensitivity" type="number" step="0.1"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-motion_enabled"><span class="tog"></span> Enabled</label></div></div>
-<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(255,0,0,.1);color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>Alert Keywords</div><div class="sds">Comma-separated words that trigger alerts</div><div class="sf sfu"><textarea class="si" id="s-alert_keywords" rows="2" placeholder="weapon, fire, intruder..."></textarea></div></div>
-<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(10,132,255,.12);color:#5aaeff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></span>Telegram</div><div class="sds">Get notified on your phone</div><div class="sg"><div class="sf"><span class="sl">Bot Token</span><input class="si" id="s-telegram_token" placeholder="123456:ABC-DEF..."></div><div class="sf"><span class="sl">Chat ID</span><input class="si" id="s-telegram_chat_id" placeholder="12345678"></div><div class="sf"><span class="sl">Quiet Start</span><input class="si" id="s-telegram_quiet_start" placeholder="23:00"></div><div class="sf"><span class="sl">Quiet End</span><input class="si" id="s-telegram_quiet_end" placeholder="07:00"></div><div class="sf"><span class="sl">Min Interval (sec)</span><input class="si" id="s-telegram_min_interval" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-telegram_on_alert" checked><span class="tog"></span> Alerts only</label><label class="sch"><input type="checkbox" id="s-telegram_on_all"><span class="tog"></span> All events</label><button class="bt bg" onclick="tgT()">Test</button></div></div>
-<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(255,159,10,.1);color:var(--orange)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></span>Snapshots</div><div class="sds">Auto-capture frames on events</div><div class="sg"><div class="sf"><span class="sl">JPEG Quality (1-100)</span><input class="si" id="s-snapshot_quality" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-snapshot_on_every"><span class="tog"></span> Save on every event</label></div></div>
-<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(255,214,10,.1);color:var(--yellow)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>Feed</div><div class="sds">Event feed display settings</div><div class="sg"><div class="sf"><span class="sl">Max Items</span><input class="si" id="s-feed_max_items" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-feed_show_stable"><span class="tog"></span> Show stable events</label></div></div>
-<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(138,130,255,.1);color:#8a82ff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></span>Cameras</div><div class="sds">Manage your connected cameras</div><div id="cL"></div><div style="display:flex;gap:8px;margin-top:10px"><button class="bt bg" onclick="oAC()">+ Add Camera</button><button class="bt bb" onclick="sSc()" id="scB">Scan Network</button></div><div id="scR" style="margin-top:8px;display:none"><div id="scSt"></div><div id="scL"></div></div></div>
-<div class="sc"><div class="stl"><span class="sec-ico" style="background:rgba(255,255,255,.06);color:var(--muted)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 12a9 9 0 11-6.2-8.6"/><path d="M21 3v9h-9"/></svg></span>Data &amp; Retention</div><div class="sds">Storage usage and cleanup rules</div><div id="dS" style="display:flex;gap:16px;margin-bottom:14px;padding:12px 16px;background:var(--bg);border-radius:12px;border:1px solid var(--line)"></div><div class="sg"><div class="sf"><span class="sl">Keep days</span><input class="si" id="s-retain_days" type="number"></div><div class="sf"><span class="sl">Max observations</span><input class="si" id="s-retain_max_obs" type="number"></div><div class="sf"><span class="sl">Max snapshot MB</span><input class="si" id="s-retain_max_snap_mb" type="number"></div><div class="sf"><span class="sl">Strip thumbs after (days)</span><input class="si" id="s-thumb_retain_days" type="number"></div><div class="sf"><span class="sl">Cleanup interval (min)</span><input class="si" id="s-cleanup_interval_min" type="number"></div></div><div class="srw" style="margin-top:10px"><button class="bt bg" onclick="rCl()">Run Cleanup</button><button class="bt br" onclick="if(confirm('Clear ALL data?'))fetch('/api/clear',{method:'POST'}).then(()=>{T('Cleared');lDS()})">Clear All Data</button></div></div>
-<div class="settings-save"><button class="bt bb" style="flex:1;height:44px;font-size:14px" onclick="svS()">Save Settings</button></div>
+<div class="pg scroll-page" id="pg-s"><div class="sec-header"><h2>Settings</h2></div><div style="margin-top:8px;max-width:640px">
+<div class="sc"><div class="stl">Model</div><div class="sg"><div class="sf"><span class="sl">Processor</span><input class="si" id="s-model"></div><div class="sf"><span class="sl">URL</span><input class="si" id="s-ollama_url"></div><div class="sf"><span class="sl">Max Tokens</span><input class="si" id="s-max_tokens" type="number"></div><div class="sf"><span class="sl">Image Size</span><input class="si" id="s-inference_size" type="number"></div><div class="sf"><span class="sl">Interval</span><input class="si" id="s-analysis_interval" type="number" step="0.5"></div><div class="sf sfu"><span class="sl">Prompt</span><textarea class="si" id="s-prompt" rows="3"></textarea></div><div class="sf sfu"><span class="sl" style="margin-bottom:4px">Presets</span><div style="display:flex;gap:4px;flex-wrap:wrap" id="promptPresets"></div></div><div class="sf sfu"><label class="sch"><input type="checkbox" id="s-situational"> Situational mode (remembers context, explains what's changing and where it's heading)</label></div></div></div>
+<div class="sc"><div class="stl">Motion</div><div class="sg"><div class="sf"><span class="sl">Sensitivity</span><input class="si" id="s-motion_sensitivity" type="number" step="0.1"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-motion_enabled"> Enabled</label></div></div>
+<div class="sc"><div class="stl">Alert Keywords</div><div class="sf sfu"><textarea class="si" id="s-alert_keywords" rows="2"></textarea></div></div>
+<div class="sc"><div class="stl">Telegram</div><div class="sg"><div class="sf"><span class="sl">Token</span><input class="si" id="s-telegram_token"></div><div class="sf"><span class="sl">Chat ID</span><input class="si" id="s-telegram_chat_id"></div><div class="sf"><span class="sl">Quiet Start</span><input class="si" id="s-telegram_quiet_start" placeholder="23:00"></div><div class="sf"><span class="sl">Quiet End</span><input class="si" id="s-telegram_quiet_end" placeholder="07:00"></div><div class="sf"><span class="sl">Min Interval</span><input class="si" id="s-telegram_min_interval" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-telegram_on_alert" checked> Alerts</label><label class="sch"><input type="checkbox" id="s-telegram_on_all"> All</label><button class="bt bg" onclick="tgT()">Test</button></div></div>
+<div class="sc"><div class="stl">Phone Push (ntfy)</div><div class="sds">Simplest phone alerts: install the "ntfy" app, subscribe to your topic, done. No accounts.</div><div class="sg"><div class="sf"><span class="sl">Topic (pick anything unique)</span><input class="si" id="s-ntfy_topic" placeholder="mevin-home-7x2k"></div><div class="sf"><span class="sl">Server</span><input class="si" id="s-ntfy_server" placeholder="https://ntfy.sh"></div><div class="sf"><span class="sl">Min Interval</span><input class="si" id="s-ntfy_min_interval" type="number"></div></div><div class="srw"><button class="bt bg" onclick="ntfyT()">Send Test</button><span style="font-size:11px;color:var(--soft)">Then open ntfy app and subscribe to your topic</span></div></div>
+<div class="sc"><div class="stl">Snapshots</div><div class="sg"><div class="sf"><span class="sl">Quality</span><input class="si" id="s-snapshot_quality" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-snapshot_on_every"> Save all</label></div></div>
+<div class="sc"><div class="stl">Feed</div><div class="sg"><div class="sf"><span class="sl">Max Items</span><input class="si" id="s-feed_max_items" type="number"></div></div><div class="srw"><label class="sch"><input type="checkbox" id="s-feed_show_stable"> Show stable</label></div></div>
+<div class="sc"><div class="stl">Cameras</div><div id="cL"></div><div style="display:flex;gap:6px;margin-top:8px"><button class="bt bg" onclick="oAC()">+ Add</button><button class="bt bb" onclick="sSc()" id="scB">Scan</button></div><div id="scR" style="margin-top:8px;display:none"><div id="scSt"></div><div id="scL"></div></div></div>
+<div class="sc"><div class="stl">Data</div><div id="dS" style="display:flex;gap:16px;margin-bottom:12px;padding:10px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--line)"></div><div class="sg"><div class="sf"><span class="sl">Keep days</span><input class="si" id="s-retain_days" type="number"></div><div class="sf"><span class="sl">Max obs</span><input class="si" id="s-retain_max_obs" type="number"></div><div class="sf"><span class="sl">Max snap MB</span><input class="si" id="s-retain_max_snap_mb" type="number"></div><div class="sf"><span class="sl">Strip thumbs</span><input class="si" id="s-thumb_retain_days" type="number"></div><div class="sf"><span class="sl">Cleanup min</span><input class="si" id="s-cleanup_interval_min" type="number"></div></div><div class="srw" style="margin-top:8px"><button class="bt bg" onclick="rCl()">Cleanup</button><button class="bt br" onclick="if(confirm('Clear ALL?'))fetch('/api/clear',{method:'POST'}).then(()=>{T('Cleared');lDS()})">Clear All</button></div></div>
+<button class="bt bb" style="margin-top:8px" onclick="svS()">Save</button>
 </div></div>
 </div>
 
 <!-- Modals -->
-<div class="mb" id="acM"><div class="md"><h3 id="cmT">Add Camera</h3><div class="sf"><span class="sl">Name</span><input class="si" id="cn" placeholder="Front Door"></div><div class="sf" style="margin-top:8px"><span class="sl">Source</span><input class="si" id="cso" placeholder="0 or rtsp://..."></div><input type="hidden" id="ce"><div class="mf"><button class="bt bg" onclick="cM()">Cancel</button><button class="bt bb" onclick="sC()">Save</button></div></div></div>
+<div class="mb" id="acM"><div class="md"><h3 id="cmT">Add Camera</h3><div class="sf"><span class="sl">Name</span><input class="si" id="cn" placeholder="Front Door"></div><div class="sf" style="margin-top:8px"><span class="sl">Source</span><input class="si" id="cso" placeholder="0 or rtsp://..."></div><div class="sf" style="margin-top:8px"><span class="sl">Zone (cameras in the same zone are understood together)</span><input class="si" id="czone" placeholder="Main" list="zoneList"><datalist id="zoneList"></datalist></div><input type="hidden" id="ce"><div class="mf"><button class="bt bg" onclick="cM()">Cancel</button><button class="bt bb" onclick="sC()">Save</button></div></div></div>
 <div class="mb" id="vfM"><div class="md" style="width:480px"><h3>Open Video</h3><div class="sf" style="margin-top:8px"><span class="sl">Path</span><input class="si" id="vfP" placeholder="C:\path\to\video.mp4"></div><div class="sf" style="margin-top:6px"><span class="sl">Name</span><input class="si" id="vfN" placeholder="Video"></div><div class="vor">or select</div><div class="vfl" id="vfL"></div><div class="mf"><button class="bt bg" onclick="cM()">Cancel</button><button class="bt bb" onclick="aVF()">Add</button></div></div></div>
 <div class="sco" id="scO"><div class="scoh"><h3>Scanner</h3><button class="bt bg" style="padding:3px 8px;font-size:10px" onclick="document.getElementById('scO').classList.remove('op')">Close</button></div><div class="scob" id="scOB"></div></div>
+<div class="mb" id="onM"><div class="md" style="width:520px"><h3>Discover Cameras</h3><p style="font-size:13px;color:var(--soft);margin-bottom:14px;line-height:1.5">Finds Hikvision, Dahua, Reolink, NVRs and other ONVIF cameras on your network automatically. No URLs to type.</p>
+<div id="onStep1"><button class="bt bb" style="width:100%" id="onScanBtn" onclick="onScan()">Scan my network</button><div id="onStatus" style="margin-top:10px;font-size:12px;color:var(--soft);text-align:center"></div><div id="onDevices" style="margin-top:10px"></div></div>
+<div id="onStep2" style="display:none"><div style="font-size:13px;font-weight:700;margin-bottom:8px" id="onDevTitle"></div><div class="sg"><div class="sf"><span class="sl">Username</span><input class="si" id="onUser" value="admin"></div><div class="sf"><span class="sl">Password</span><input class="si" id="onPass" type="password"></div></div><div class="sf" style="margin-top:8px"><span class="sl">Zone</span><input class="si" id="onZone" placeholder="Main" list="zoneList"></div><div id="onStreams" style="margin-top:10px"></div><div class="mf"><button class="bt bg" onclick="onBack()">Back</button><button class="bt bb" id="onConnectBtn" onclick="onConnect()">Get cameras</button></div></div>
+<div class="mf" id="onCloseRow"><button class="bt bg" onclick="cM()">Close</button></div>
+</div></div>
 <div class="xo" id="xV" onclick="this.classList.remove('op')"><img id="xI"></div>
 <div class="ev-ov" id="evOv" onclick="if(event.target===this)this.classList.remove('op')">
   <div class="ev-box">
@@ -350,7 +380,6 @@ button,input,textarea{font-family:inherit}button{border:0;background:none;color:
     </div>
   </div>
 </div>
-<div class="tl-tip" id="tlTip"></div>
 <div class="to" id="toast"></div>
 
 <script>
@@ -377,89 +406,201 @@ function openEv(id){
 }
 function T(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none'},2500)}
 
-// Per-camera lifelines
-var llCams={},llFrame=0,llCamCount=0;
-function llInitCams(cams){
-  var strip=document.getElementById('llStrip');if(!strip)return;
-  llCamCount=cams.length;
-  var ids=cams.map(function(c){return c.id});
-  Object.keys(llCams).forEach(function(k){if(k[0]==='_')return;if(ids.indexOf(k)<0)delete llCams[k]});
-  strip.innerHTML=cams.map(function(c){
-    if(!llCams[c.id])llCams[c.id]={data:[],target:0,current:0,dirty:true};
-    return'<div class="ll-cam" id="llc-'+c.id+'" onclick="setMain(\''+c.id+"','"+c.name.replace(/'/g,"\\'")+'\')"><canvas id="llcv-'+c.id+'"></canvas><div class="ll-cam-info"><span class="ll-cam-name">'+c.name+'</span><span class="ll-cam-lvl low" id="lll-'+c.id+'">LOW</span></div></div>'
-  }).join('');
-  cams.forEach(function(c){
-    var cv=document.getElementById('llcv-'+c.id);if(!cv)return;
-    var w=Math.ceil(cv.clientWidth/2);
-    var d=llCams[c.id];
-    while(d.data.length<w)d.data.push(0);
-  });
-  if(!llCams._raf){llCams._raf=true;llDrawAll()}
+// Danger lifeline
+var llState={},llCanvas,llCtx;
+function llGet(id){if(!llState[id])llState[id]={t:0,c:0,d:[]};return llState[id]}
+
+// ===== BOARD VIEW - per-camera situational cards grouped by zone =====
+var currentView='board',boardCams=[],ccLLanim=null;
+function setView(v){
+  currentView=v;
+  document.getElementById('boardView').style.display=v==='board'?'flex':'none';
+  document.getElementById('focusView').style.display=v==='focus'?'flex':'none';
+  document.getElementById('vsBoard').classList.toggle('on',v==='board');
+  document.getElementById('vsFocus').classList.toggle('on',v==='focus');
+  if(v==='board')buildBoard();
 }
-function llPush(level,camId){
-  if(!camId){Object.keys(llCams).forEach(function(k){if(k[0]==='_')return;llCams[k].target=Math.max(0,Math.min(1,level));llCams[k].dirty=true});return}
-  var d=llCams[camId];if(d){d.target=Math.max(0,Math.min(1,level));d.dirty=true}
-}
-function llDrawAll(){
-  llFrame++;
-  // Adaptive throttle: 1-2 cams=every 3rd frame(20fps), 3-4=every 4th(15fps), 5+=every 6th(10fps)
-  var skip=llCamCount>4?6:llCamCount>2?4:3;
-  if(llFrame%skip===0){
-    Object.keys(llCams).forEach(function(id){
-      if(id[0]==='_')return;
-      var d=llCams[id],cv=document.getElementById('llcv-'+id);if(!cv)return;
-      var ctx=cv.getContext('2d');
-      var dpr=window.devicePixelRatio||1;
-      var w=cv.clientWidth,h=cv.clientHeight;
-      if(w===0||h===0)return;
-      if(cv.width!==w*dpr||cv.height!==h*dpr){cv.width=w*dpr;cv.height=h*dpr;ctx.scale(dpr,dpr)}
-      d.current+=(d.target-d.current)*0.08;
-      var noise=Math.sin(Date.now()/800+id.charCodeAt(3)*100)*0.01+Math.sin(Date.now()/300+id.charCodeAt(3)*50)*0.005;
-      var val=Math.max(0,Math.min(1,d.current+noise));
-      d.data.push(val);
-      var maxPts=Math.ceil(w/2);
-      while(d.data.length>maxPts)d.data.shift();
-      ctx.clearRect(0,0,w,h);
-      var pad=2,gh=h-pad*2;
-      ctx.beginPath();
-      for(var i=0;i<d.data.length;i++){
-        var x=i*(w/maxPts),y=pad+gh*(1-d.data[i]);
-        if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-      }
-      var r=Math.round(d.current*255),g=Math.round((1-d.current)*200);
-      var col='rgb('+r+','+g+',40)';
-      ctx.strokeStyle=col;ctx.lineWidth=1.2;ctx.lineJoin='round';ctx.stroke();
-      var lastX=(d.data.length-1)*(w/maxPts);
-      ctx.lineTo(lastX,h);ctx.lineTo(0,h);ctx.closePath();
-      var grd=ctx.createLinearGradient(0,0,0,h);
-      grd.addColorStop(0,col.replace('rgb','rgba').replace(')',',0.2)'));
-      grd.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=grd;ctx.fill();
-      var tipX=lastX,tipY=pad+gh*(1-val);
-      ctx.beginPath();ctx.arc(tipX,tipY,2.5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
-      // Update level badge only when value changes significantly
-      if(d.dirty||llFrame%15===0){
-        d.dirty=false;
-        var lbl=d.current<0.15?'low':d.current<0.4?'mild':d.current<0.65?'elevated':'high';
-        var le=document.getElementById('lll-'+id);
-        if(le){le.textContent=lbl.toUpperCase();le.className='ll-cam-lvl '+lbl}
-        var wrap=document.getElementById('llc-'+id);
-        if(wrap)wrap.style.borderColor=d.current>0.5?'rgba(255,0,0,'+(0.2+d.current*0.4)+')':'';
-      }
+async function buildBoard(){
+  var bv=document.getElementById('boardView');
+  if(!bv){console.error('boardView element missing');return}
+  try{
+    var resp=await fetch('/api/zones');
+    if(!resp.ok)throw new Error('zones '+resp.status);
+    var zones=await resp.json();
+    var zoneNames=Object.keys(zones);
+    if(!zoneNames.length){bv.innerHTML='<div class="empty-state">No cameras yet. Click Add to begin.</div>';return}
+    var html='';
+    zoneNames.forEach(function(z){
+      var cams=zones[z];var zid=z.replace(/[^a-zA-Z0-9]/g,'_');
+      html+='<div class="zone" data-zone="'+esc(z)+'"><div class="zone-head"><span class="zone-name">'+esc(z)+'</span><span class="zone-count">'+cams.length+' camera'+(cams.length>1?'s':'')+'</span><div class="zone-line"></div></div>';
+      html+='<div class="zone-picture" id="zp-'+zid+'"><svg class="zp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg><div class="zp-body"><div class="zp-label">Big Picture</div><div class="zp-text" id="zptext-'+zid+'"></div></div><span class="zp-time" id="zptime-'+zid+'"></span></div>';
+      html+='<div class="zone-cams">';
+      cams.forEach(function(c){html+=ccCard(c.id,c.name)});
+      html+='</div></div>';
     });
+    bv.innerHTML=html;
+    hydrateBoard();
+    startBoardLifelines();
+    startBoardSnapshots();
+  }catch(e){
+    console.error('buildBoard failed:',e);
+    bv.innerHTML='<div class="empty-state">Could not load board: '+esc(String(e.message||e))+'<br>Try refreshing.</div>';
   }
-  requestAnimationFrame(llDrawAll);
+}
+function ccCard(id,name){
+  return '<div class="cam-card" id="card-'+id+'">'+
+    '<div class="cc-video" onclick="enlargeCam(\''+id+'\')"><img id="ccimg-'+id+'" src="/snapshot-live/'+id+'?t='+Date.now()+'" loading="lazy"><div class="cc-vlabel"><span class="cc-name">'+esc(name)+'</span><span class="cc-live"><span class="dot"></span>LIVE</span></div></div>'+
+    '<canvas class="cc-llcanvas" id="ccll-'+id+'" height="30"></canvas>'+
+    '<div class="cc-situation"><span class="cc-sit-dot" id="ccdot-'+id+'"></span><div class="cc-sit-body"><div class="cc-sit-text cc-sit-waiting" id="ccsit-'+id+'">Watching...</div><div class="cc-sit-meta" id="ccmeta-'+id+'"></div></div></div>'+
+    '<div class="cc-feed" id="ccfeed-'+id+'"><div class="cc-fi-empty">No events yet</div></div>'+
+  '</div>';
+}
+// Board tiles refresh as periodic snapshots (looks live, ~20x lighter than live MJPEG)
+var ccSnapTimer=null;
+function startBoardSnapshots(){
+  if(ccSnapTimer)clearInterval(ccSnapTimer);
+  ccSnapTimer=setInterval(function(){
+    if(document.hidden)return;  // pause when tab not visible
+    if(currentView==='board'){
+      document.querySelectorAll('.cc-video img').forEach(function(img){
+        var id=img.id.replace('ccimg-','');img.src='/snapshot-live/'+id+'?t='+Date.now();
+      });
+    }else if(currentView==='focus'){
+      // refresh strip thumbnails (not the main view - that's live MJPEG)
+      document.querySelectorAll('.strip-img').forEach(function(img){
+        img.src='/snapshot-live/'+img.dataset.cid+'?t='+Date.now();
+      });
+    }
+  },1500);
+}
+async function hydrateBoard(){
+  try{
+    var data=await(await fetch('/api/situations')).json();
+    for(var cid in data.cameras){updateCardSituation(cid,data.cameras[cid])}
+    for(var z in data.zones){updateZonePicture(z,data.zones[z])}
+    var cards=document.querySelectorAll('.cam-card');
+    for(var i=0;i<cards.length;i++){
+      var cid=cards[i].id.replace('card-','');
+      var items=await(await fetch('/api/recent-feed?limit=8&camera_id='+cid)).json();
+      renderCardFeed(cid,items.reverse());
+    }
+  }catch(e){}
+}
+function dangerColor(d){return d<0.15?'#32d74b':d<0.4?'#ffd60a':d<0.65?'#ff9f0a':'#ff0000'}
+function updateCardSituation(cid,sit){
+  var t=document.getElementById('ccsit-'+cid);if(!t)return;
+  t.textContent=sit.text||'';t.classList.remove('cc-sit-waiting');
+  var dot=document.getElementById('ccdot-'+cid);var col=dangerColor(sit.danger||0);if(dot){dot.style.background=col;dot.style.color=col}
+  var meta=document.getElementById('ccmeta-'+cid);var m='';
+  if(sit.trend&&sit.trend!=='stable')m+='<span class="cc-sit-trend '+sit.trend+'">'+(sit.trend==='rising'?'ESCALATING':'CALMING')+'</span>';
+  if(sit.time)m+='<span class="cc-sit-time">'+sit.time+'</span>';
+  if(meta)meta.innerHTML=m;
+  var card=document.getElementById('card-'+cid);if(card)card.classList.toggle('alert',!!sit.is_alert);
+  var st=llGet(cid);st.t=sit.danger||0;if(sit.trend)st.trend=sit.trend;
+}
+function updateZonePicture(z,zp){
+  var zid=String(z).replace(/[^a-zA-Z0-9]/g,'_');
+  var el=document.getElementById('zp-'+zid);if(!el)return;
+  var tx=document.getElementById('zptext-'+zid);if(tx)tx.textContent=zp.text||'';
+  var tm=document.getElementById('zptime-'+zid);if(tm)tm.textContent=zp.time||'';
+  el.classList.add('show');el.classList.toggle('danger',(zp.danger||0)>=0.5);
+}
+function renderCardFeed(cid,items){
+  var f=document.getElementById('ccfeed-'+cid);if(!f)return;
+  if(!items.length){f.innerHTML='<div class="cc-fi-empty">No events yet</div>';return}
+  f.innerHTML=items.map(function(d){
+    return '<div class="cc-fi'+(d.is_alert?' alert':'')+'" onclick="openEv(\''+d.item_id+'\')"><span class="cc-fi-time">'+d.time+'</span><span class="cc-fi-text">'+fmt(d.text||'')+'</span></div>'
+  }).join('');
+  items.forEach(function(d){if(!evData[d.item_id])evData[d.item_id]={camera_name:d.camera_name,time:d.time,thumb:d.thumb,text:d.text,is_alert:d.is_alert,alert_keywords:d.alert_keywords||[]}});
+}
+function pushCardFeed(m){
+  var f=document.getElementById('ccfeed-'+m.camera_id);if(!f)return;
+  var empty=f.querySelector('.cc-fi-empty');if(empty)empty.remove();
+  var div=document.createElement('div');div.className='cc-fi'+(m.is_alert?' alert':'');div.onclick=function(){openEv(m.item_id)};
+  div.innerHTML='<span class="cc-fi-time">'+m.time+'</span><span class="cc-fi-text">'+fmt(m.text||'')+'</span>';
+  f.insertBefore(div,f.firstChild);
+  while(f.children.length>8)f.removeChild(f.lastChild);
+}
+function startBoardLifelines(){
+  if(ccLLanim)cancelAnimationFrame(ccLLanim);
+  function draw(){
+    if(currentView==='board'){
+      document.querySelectorAll('.cc-llcanvas').forEach(function(cv){
+        var cid=cv.id.replace('ccll-','');drawMiniLL(cv,llGet(cid));
+      });
+    }
+    ccLLanim=requestAnimationFrame(draw);
+  }
+  draw();
+}
+function drawMiniLL(cv,st){
+  var ctx=cv.getContext('2d');var dpr=window.devicePixelRatio||1;
+  var w=cv.clientWidth,h=cv.clientHeight;if(!w)return;
+  if(cv.width!==w*dpr||cv.height!==h*dpr){cv.width=w*dpr;cv.height=h*dpr;ctx.scale(dpr,dpr)}
+  st.c+=(st.t-st.c)*0.08;
+  var noise=Math.sin(Date.now()/700)*0.008;
+  var val=Math.max(0,Math.min(1,st.c+noise));
+  if(!st.d)st.d=[];st.d.push(val);var maxPts=Math.ceil(w/2);while(st.d.length>maxPts)st.d.shift();
+  ctx.clearRect(0,0,w,h);var pad=3,gh=h-pad*2;
+  ctx.beginPath();
+  for(var i=0;i<st.d.length;i++){var x=i*(w/maxPts),y=pad+gh*(1-st.d[i]);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}
+  var r=Math.round(st.c*255),g=Math.round((1-st.c)*200),col='rgb('+r+','+g+',40)';
+  ctx.strokeStyle=col;ctx.lineWidth=1.3;ctx.lineJoin='round';ctx.stroke();
+  var lastX=(st.d.length-1)*(w/maxPts);ctx.lineTo(lastX,h);ctx.lineTo(0,h);ctx.closePath();
+  var grd=ctx.createLinearGradient(0,0,0,h);grd.addColorStop(0,col.replace('rgb','rgba').replace(')',',0.22)'));grd.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=grd;ctx.fill();
+  ctx.beginPath();ctx.arc(lastX,pad+gh*(1-val),2.5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+}
+function enlargeCam(id){
+  var c=boardCams.find(function(x){return x.id===id});
+  setView('focus');
+  if(c)setMain(id,c.name);
+}
+function llInit(){llCanvas=document.getElementById('lifeline');if(!llCanvas)return;llCtx=llCanvas.getContext('2d');llDraw()}
+function llPush(level,camId,trend){if(!camId)return;var st=llGet(camId);st.t=Math.max(0,Math.min(1,level));if(trend)st.trend=trend}
+function llDraw(){
+  if(!llCanvas||!llCtx)return;
+  var dpr=window.devicePixelRatio||1;
+  var w=llCanvas.clientWidth,h=llCanvas.clientHeight;
+  if(llCanvas.width!==w*dpr||llCanvas.height!==h*dpr){llCanvas.width=w*dpr;llCanvas.height=h*dpr;llCtx.scale(dpr,dpr)}
+  var st=mainCamId?llGet(mainCamId):{t:0,c:0,d:[]};
+  st.c+=(st.t-st.c)*0.08;
+  var noise=(Math.sin(Date.now()/800)*0.01+Math.sin(Date.now()/300)*0.005);
+  var val=Math.max(0,Math.min(1,st.c+noise));
+  st.d.push(val);var maxPts=Math.ceil(w/2);while(st.d.length>maxPts)st.d.shift();
+  llCtx.clearRect(0,0,w,h);var pad=4,gh=h-pad*2;
+  llCtx.beginPath();
+  for(var i=0;i<st.d.length;i++){var x=i*(w/maxPts);var y=pad+gh*(1-st.d[i]);if(i===0)llCtx.moveTo(x,y);else llCtx.lineTo(x,y)}
+  var r=Math.round(st.c*255),g=Math.round((1-st.c)*200);
+  var col='rgb('+r+','+g+',40)';
+  llCtx.strokeStyle=col;llCtx.lineWidth=1.5;llCtx.lineJoin='round';llCtx.stroke();
+  var lastX=(st.d.length-1)*(w/maxPts);
+  llCtx.lineTo(lastX,h);llCtx.lineTo(0,h);llCtx.closePath();
+  var grd=llCtx.createLinearGradient(0,0,0,h);
+  grd.addColorStop(0,col.replace('rgb','rgba').replace(')',',0.25)'));
+  grd.addColorStop(1,'rgba(0,0,0,0)');
+  llCtx.fillStyle=grd;llCtx.fill();
+  var tipX=lastX,tipY=pad+gh*(1-val);
+  llCtx.beginPath();llCtx.arc(tipX,tipY,3,0,Math.PI*2);llCtx.fillStyle=col;llCtx.fill();
+  llCtx.beginPath();llCtx.arc(tipX,tipY,6,0,Math.PI*2);llCtx.fillStyle=col.replace('rgb','rgba').replace(')',',0.2)');llCtx.fill();
+  llCtx.fillStyle='rgba(255,255,255,0.4)';
+  llCtx.font='bold 9px '+getComputedStyle(document.body).getPropertyValue('--mono');
+  var label=st.c<0.15?'LOW':st.c<0.4?'MILD':st.c<0.65?'ELEVATED':'HIGH';
+  var arrow=st.trend==='rising'?' \u2191':st.trend==='falling'?' \u2193':'';
+  llCtx.fillText(label+arrow,6,12);
+  requestAnimationFrame(llDraw);
 }
 function llScore(d){
   if(!d||d.no_change)return 0.02;
+  // Use backend's computed danger score if available
+  if(d.danger!==undefined)return d.danger;
   var score=0.1;
   if(d.is_alert){score=0.5;var kws=(d.alert_keywords||[]).length;score+=kws*0.12}
   if(d.motion!==undefined)score+=Math.min(d.motion/100,1)*0.15;
   return Math.min(1,score);
 }
 function cM(){document.querySelectorAll('.mb').forEach(function(m){m.classList.remove('op')})}
-function go(n,b){document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on')});document.querySelectorAll('.nb').forEach(function(x){x.classList.remove('on')});var e=document.getElementById('pg-'+n);if(e)e.classList.add('on');if(b)b.classList.add('on');if(n==='s'){lS();lDS();initPresets()}if(n==='gl')lG()}
-async function sD(){var d={setup_done:'true'},m=document.getElementById('smod').value.trim(),tg=document.getElementById('stg').value.trim();if(m)d.model=m;if(tg)d.telegram_token=tg;await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});var o=document.getElementById('sov');o.classList.add('dn');setTimeout(function(){o.remove()},500)}
+function go(n,b){document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on')});document.querySelectorAll('.nb').forEach(function(x){x.classList.remove('on')});var e=document.getElementById('pg-'+n);if(e)e.classList.add('on');if(b)b.classList.add('on');if(n==='s'){lS();lDS();initPresets()}if(n==='gl')lG();if(n==='m'&&currentView==='board')buildBoard()}
+async function sD(){var d={setup_done:'true'},m=document.getElementById('smod').value.trim(),tg=document.getElementById('stg').value.trim();if(m)d.model=m;if(tg)d.telegram_token=tg;await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});var o=document.getElementById('sov');o.classList.add('dn');setTimeout(function(){o.remove()},500);boardCams=await(await fetch('/api/cameras')).json();bCG(boardCams);buildBoard()}
 
 // Splitter drag
 (function(){var sp=document.getElementById('splitter'),fp=document.getElementById('feedPanel'),dragging=false,startX,startW;
@@ -468,31 +609,30 @@ document.addEventListener('mousemove',function(e){if(!dragging)return;var w=star
 document.addEventListener('mouseup',function(){if(dragging){dragging=false;sp.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect=''}})})();
 
 // Cameras - main + strip
-var camThumbs={};  // latest thumbnail per camera from events
-function camThumbSrc(id){return camThumbs[id]?'data:image/jpeg;base64,'+camThumbs[id]:''}
-function uCamThumb(camId,thumb){
-  if(!thumb||!camId)return;camThumbs[camId]=thumb;
-  var img=document.querySelector('#cs-'+camId+' img');
-  if(img&&camId!==mainCamId)img.src=camThumbSrc(camId);
-}
 function bCG(cams){
-  if(!cams.length){document.getElementById('mainImg').src='about:blank';document.getElementById('mainName').textContent='No camera';document.getElementById('camStrip').innerHTML='';document.getElementById('llStrip').innerHTML='';return}
+  if(!cams.length){document.getElementById('mainImg').src='about:blank';document.getElementById('mainName').textContent='No camera';document.getElementById('camStrip').innerHTML='';return}
   if(!mainCamId||!cams.find(function(c){return c.id===mainCamId}))mainCamId=cams[0].id;
   var mc=cams.find(function(c){return c.id===mainCamId});
   document.getElementById('mainImg').src='/video/'+mc.id;
   document.getElementById('mainName').textContent=mc.name;
-  llInitCams(cams);
-  // Thumbnails: use last event snapshot, NOT live MJPEG stream (1 stream total = main only)
   document.getElementById('camStrip').innerHTML=cams.map(function(c){
-    var src=camThumbSrc(c.id);
-    return '<div class="cam-sm'+(c.id===mainCamId?' active':'')+'" onclick="setMain(\''+c.id+'\',\''+c.name+'\')" id="cs-'+c.id+'"><img src="'+src+'" loading="lazy"><div class="cam-sm-label">'+c.name+'</div><div class="cam-sm-acts"><button class="cam-sm-btn" onclick="event.stopPropagation();tF(\''+c.id+'\')" title="Focus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg></button><button class="cam-sm-btn" onclick="event.stopPropagation();sn(\''+c.id+'\')" title="Snapshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="4"/><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/></svg></button><button class="cam-sm-btn dl" onclick="event.stopPropagation();dCm(\''+c.id+'\')" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></div></div>'
+    return '<div class="cam-sm'+(c.id===mainCamId?' active':'')+'" onclick="setMain(\''+c.id+'\',\''+c.name+'\')" id="cs-'+c.id+'"><img class="strip-img" data-cid="'+c.id+'" src="/snapshot-live/'+c.id+'?t='+Date.now()+'"><div class="cam-sm-label">'+c.name+'</div><div class="cam-sm-acts"><button class="cam-sm-btn" onclick="event.stopPropagation();tF(\''+c.id+'\')" title="Focus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg></button><button class="cam-sm-btn" onclick="event.stopPropagation();sn(\''+c.id+'\')" title="Snapshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="4"/><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/></svg></button><button class="cam-sm-btn dl" onclick="event.stopPropagation();dCm(\''+c.id+'\')" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></div></div>'
   }).join('')
 }
-function setMain(id,name){
-  mainCamId=id;
-  document.getElementById('mainImg').src='/video/'+id;
-  document.getElementById('mainName').textContent=name;
-  document.querySelectorAll('.cam-sm').forEach(function(c){c.classList.toggle('active',c.id==='cs-'+id)});
+function setMain(id,name){mainCamId=id;document.getElementById('mainImg').src='/video/'+id;document.getElementById('mainName').textContent=name;document.querySelectorAll('.cam-sm').forEach(function(c){c.classList.toggle('active',c.id==='cs-'+id)});document.getElementById('sitBanner').classList.remove('show')}
+function updateBanner(m){
+  if(m.camera_id!==mainCamId)return;
+  if(m.no_change)return;
+  var b=document.getElementById('sitBanner');
+  document.getElementById('sitText').textContent=m.text||'';
+  var dg=m.danger!==undefined?m.danger:(m.is_alert?0.6:0.1);
+  var dot=document.getElementById('sitDot');
+  var col=dg<0.15?'#32d74b':dg<0.4?'#ffd60a':dg<0.65?'#ff9f0a':'#ff0000';
+  dot.style.background=col;dot.style.color=col;
+  var tr=document.getElementById('sitTrend');
+  if(m.trend&&m.trend!=='stable'){tr.textContent=m.trend==='rising'?'ESCALATING':'CALMING';tr.className='sit-trend '+m.trend;tr.style.display='inline'}
+  else{tr.style.display='none'}
+  b.classList.add('show');
 }
 function xC(id){document.getElementById('xI').src='/video/'+id;document.getElementById('xV').classList.add('op')}
 async function sn(id){T((await(await fetch('/api/take-snapshot/'+id,{method:'POST'})).json()).ok?'Saved':'Failed')}
@@ -508,7 +648,7 @@ var lLW=0;function uG(d,r,w){if(!d.available){document.getElementById('gpuB').st
 function fmt(t){if(!t)return t;var m=[];function mk(x,c){var i=m.length;m.push({t:x,c:c});return'\x00'+i+'\x00'}t=t.replace(/\b(\d+)\s+(people|persons?|men|women|man|woman|child|children|individuals?)\b/gi,function(x){return mk(x,'hl-people')});t=t.replace(/\b(one|two|three|four|five|six|no|several|multiple)\s+(people|persons?|men|women|man|woman|child)\b/gi,function(x){return mk(x,'hl-people')});['weapon','knife','gun','fight','fighting','attack','aggressive','threatening','suspicious','intruder','forced','fallen','unconscious','injured','bleeding','fire','smoke','panic','unattended','abandoned','mask','loitering','hiding','climbing','vandalism','theft','stealing','robbery','danger','warning','rob','robbing','pointing'].forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(x){return mk(x,'hl-rd')})});['car','vehicle','truck','van','bag','backpack','phone','camera','door','gate','fence','window','motorcycle'].forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(x){return mk(x,'hl-ob')})});['walking','standing','sitting','entering','leaving','approaching','carrying','holding','talking','looking','moving','waiting','running','crossing'].forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(x){return mk(x,'hl-ac')})});['empty','clear','quiet','normal','calm','vacant','secure','peaceful'].forEach(function(w){t=t.replace(new RegExp('\\b('+w+')\\b','gi'),function(x){return mk(x,'hl-sf')})});t=t.replace(/</g,'&lt;').replace(/>/g,'&gt;');t=t.replace(/\x00(\d+)\x00/g,function(_,i){var v=m[parseInt(i)];return'<span class="'+v.c+'">'+v.t+'</span>'});return t}
 
 // Feed
-function mkFI(d){if(eS)eS.remove();evData[d.item_id]={camera_name:d.camera_name,time:d.time,thumb:d.thumb,motion:d.motion,text:'',is_alert:false,no_change:false,alert_keywords:[]};uCamThumb(d.camera_id,d.thumb);var v=document.createElement('div');v.className='fi streaming';v.id='fi-'+d.item_id;v.dataset.text='';v.dataset.pinned='0';v.dataset.alert='0';v.style.cursor='pointer';v.onclick=function(e){if(!e.target.closest('.fi-btns'))openEv(d.item_id)};var th=d.thumb?'<div class="fi-thumb"><img src="data:image/jpeg;base64,'+d.thumb+'"></div>':'';v.innerHTML=th+'<div class="fi-content"><div class="fi-row1"><span class="fi-cam">'+d.camera_name+'</span><span class="fi-time">'+d.time+'</span></div><div class="fi-text" id="tx-'+d.item_id+'"><span class="cur"></span></div></div><div class="fi-btns"><button class="fi-b" id="pn-'+d.item_id+'" onclick="tP(\''+d.item_id+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5m-7-5h14l-1.4-7.2a2 2 0 00-2-1.6h-7.2a2 2 0 00-2 1.6z"/><path d="M10 2h4v5h-4z"/></svg></button><button class="fi-b" onclick="cO(\''+d.item_id+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>';fS.prepend(v);tot++;document.getElementById('fN').textContent=tot;
+function mkFI(d){if(eS)eS.remove();evData[d.item_id]={camera_name:d.camera_name,time:d.time,thumb:d.thumb,motion:d.motion,text:'',is_alert:false,no_change:false,alert_keywords:[]};var v=document.createElement('div');v.className='fi streaming';v.id='fi-'+d.item_id;v.dataset.text='';v.dataset.pinned='0';v.dataset.alert='0';v.style.cursor='pointer';v.onclick=function(e){if(!e.target.closest('.fi-btns'))openEv(d.item_id)};var th=d.thumb?'<div class="fi-thumb"><img src="data:image/jpeg;base64,'+d.thumb+'"></div>':'';v.innerHTML=th+'<div class="fi-content"><div class="fi-row1"><span class="fi-cam">'+d.camera_name+'</span><span class="fi-time">'+d.time+'</span></div><div class="fi-text" id="tx-'+d.item_id+'"><span class="cur"></span></div></div><div class="fi-btns"><button class="fi-b" id="pn-'+d.item_id+'" onclick="tP(\''+d.item_id+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5m-7-5h14l-1.4-7.2a2 2 0 00-2-1.6h-7.2a2 2 0 00-2 1.6z"/><path d="M10 2h4v5h-4z"/></svg></button><button class="fi-b" onclick="cO(\''+d.item_id+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></div>';fS.prepend(v);tot++;document.getElementById('fN').textContent=tot;
   if(d.camera_id===mainCamId){document.getElementById('mainAz').style.display='block'}}
 function uTk(d){var e=document.getElementById('tx-'+d.item_id);if(e)e.innerHTML=fmt(d.text)+'<span class="cur"></span>';var f=document.getElementById('fi-'+d.item_id);if(f)f.dataset.text=d.text.toLowerCase()}
 function dFI(d){var v=document.getElementById('fi-'+d.item_id);if(!v)return;
@@ -525,130 +665,14 @@ async function tP(i){var v=document.getElementById('fi-'+i),b=document.getElemen
 function cO(i){var e=document.getElementById('tx-'+i);if(e){navigator.clipboard.writeText(e.textContent);T('Copied')}}
 
 // Timeline
-var tld=[],tlH=3,tlZv=1,tlEvCentroid=null;function esc(v){return String(v??'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
+var tld=[],tlH=3,tlZv=1;function esc(v){return String(v??'').replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})}
 function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
 function uZUI(){var z=document.getElementById('tlZ'),p=document.getElementById('tlZP');if(z)z.value=tlZv;if(p)p.textContent=Math.round(tlZv*100)+'%'}
-function tlFindEventCenter(ev,st,ms){
-  // Find the weighted centroid of all events as a 0-1 ratio of the timeline
-  if(!ev||!ev.length)return 1; // default to right (now)
-  var sum=0,count=0;
-  ev.forEach(function(e){var t=new Date(e.ts)-st;var r=t/ms;sum+=r;count++});
-  return clamp(sum/count,0,1);
-}
-function sTLZ(v,r){
-  var t=document.querySelector('#tCon .tl-tracks');
-  // If no explicit ratio, use event centroid (smart focus) instead of viewport center
-  var ratio=r;
-  if(ratio===undefined||ratio===null){
-    if(t&&tlEvCentroid!==null){
-      var lw=100;
-      // Convert centroid (0-1 of event range) to scroll ratio
-      ratio=(tlEvCentroid*t.scrollWidth)/Math.max(1,t.scrollWidth);
-    }else{
-      ratio=t?((t.scrollLeft+t.clientWidth/2)/Math.max(1,t.scrollWidth)):1;
-    }
-  }
-  tlZv=clamp(parseFloat(v)||1,1,12);uZUI();rTL(tld,tlH);
-  requestAnimationFrame(function(){
-    var nt=document.querySelector('#tCon .tl-tracks');
-    if(nt)nt.scrollLeft=Math.max(0,ratio*nt.scrollWidth-nt.clientWidth/2);
-  });
-}
+function sTLZ(v,r){var t=document.querySelector('#tCon .tl-tracks');var ratio=r??(t?((t.scrollLeft+t.clientWidth/2)/Math.max(1,t.scrollWidth)):.5);tlZv=clamp(parseFloat(v)||1,1,12);uZUI();rTL(tld,tlH);requestAnimationFrame(function(){var nt=document.querySelector('#tCon .tl-tracks');if(nt)nt.scrollLeft=Math.max(0,ratio*nt.scrollWidth-nt.clientWidth/2)})}
 function zTL(d){sTLZ(tlZv*(d>0?1.3:1/1.3))}function rTLZ(){sTLZ(1,.5)}
-function tlScrollToEvents(){
-  // Scroll timeline to center on the event cluster
-  var t=document.querySelector('#tCon .tl-tracks');if(!t||tlEvCentroid===null)return;
-  var lw=100;
-  var targetScroll=tlEvCentroid*(t.scrollWidth-lw);
-  t.scrollTo({left:Math.max(0,targetScroll-t.clientWidth/2+lw),behavior:'smooth'});
-}
 async function lTL(h,b){tlH=h;if(b){document.querySelectorAll('.tl-rng button').forEach(function(p){p.classList.remove('on')});b.classList.add('on')}var r=await(await fetch('/api/timeline?hours='+h)).json();tld=r.events||[];document.getElementById('tC').textContent=tld.length+' events';rTL(tld,h);
-  requestAnimationFrame(function(){
-    var t=document.querySelector('#tCon .tl-tracks');
-    if(t){if(tld.length)tlScrollToEvents();else t.scrollLeft=t.scrollWidth}
-  });
-}
-
-// Timeline tooltip (one-time setup)
-var tlTipEl=document.getElementById('tlTip');
-var _tlTipRaf=0;
-function tlShowTip(e,html){
-  if(!tlTipEl||_tlTipRaf)return;
-  _tlTipRaf=requestAnimationFrame(function(){_tlTipRaf=0;
-    tlTipEl.innerHTML=html;tlTipEl.style.display='block';
-    var x=e.clientX+12,y=e.clientY-10;
-    if(x+250>window.innerWidth)x=e.clientX-260;
-    if(y+100>window.innerHeight)y=e.clientY-100;
-    tlTipEl.style.left=x+'px';tlTipEl.style.top=y+'px';
-  });
-}
-function tlHideTip(){if(tlTipEl)tlTipEl.style.display='none'}
-
-// One-time timeline event delegation on tCon
-(function(){
-  var c=document.getElementById('tCon');if(!c)return;
-  c.addEventListener('click',function(e){
-    var ev=e.target.closest('.tl-ev');
-    if(ev){var ids=String(ev.dataset.ids||'').split(',').filter(Boolean);if(ids.length===1)sTD(ids[0]);else sTDC(ids)}
-  });
-  c.addEventListener('mousemove',function(e){
-    var ev=e.target.closest('.tl-ev');
-    if(ev){
-      var n=parseInt(ev.dataset.count)||1;
-      var html='<div class="tip-cam">'+ev.dataset.cam+(n>1?' \u2022 '+n+' events':'')+'</div>';
-      html+='<div class="tip-time">'+ev.dataset.time+'</div>';
-      if(ev.dataset.text)html+='<div class="tip-text">'+ev.dataset.text+'</div>';
-      tlShowTip(e,html);
-    }else{tlHideTip()}
-  });
-  c.addEventListener('mouseleave',tlHideTip);
-  // Ctrl+wheel zoom (one-time)
-  c.addEventListener('wheel',function(e){if(!(e.ctrlKey||e.metaKey||e.shiftKey))return;var t=c.querySelector('.tl-tracks');if(!t)return;e.preventDefault();var r=t.getBoundingClientRect(),x=clamp(e.clientX-r.left,0,r.width),ratio=(t.scrollLeft+x)/Math.max(1,t.scrollWidth);sTLZ(tlZv*(e.deltaY<0?1.12:.89),ratio)},{passive:false});
-})();
-
-function rTL(ev,h){
-  var c=document.getElementById('tCon');uZUI();
-  if(!ev||!ev.length){c.innerHTML='<div class="tl-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.4;margin-bottom:8px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><div>No events in the last '+h+'h</div></div>';tlEvCentroid=null;return}
-  var now=new Date(),st=new Date(now.getTime()-h*3600000),ms=now-st;
-  tlEvCentroid=tlFindEventCenter(ev,st,ms);
-  var lw=100,vp=Math.max(c.clientWidth-lw-20,400),tw=Math.round(Math.max(vp,vp*tlZv)),px=tw/ms;
-  var cm={};ev.forEach(function(e){(cm[e.cam]||(cm[e.cam]=[])).push(e)});
-  var ti=tlZv>=8?5:tlZv>=5?10:tlZv>=2.5?15:h<=3?15:h<=6?30:h<=12?60:120;
-  // Build HTML
-  var parts=['<div class="tl-ruler"><div class="tl-ruler-inner" style="width:'+(tw+lw)+'px;padding-left:'+lw+'px">'];
-  for(var t=new Date(st);t<=now;t=new Date(t.getTime()+ti*60000)){
-    var x=(t-st)*px;
-    parts.push('<div class="tl-tick" style="left:'+(lw+x)+'px">'+t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0')+'</div>');
-  }
-  parts.push('</div></div><div class="tl-tracks"><div class="tl-tracks-inner" style="width:'+(tw+lw)+'px">');
-  parts.push('<div class="tl-now" style="left:'+(lw+tw)+'px"></div>');
-  var camKeys=Object.keys(cm);
-  camKeys.forEach(function(cam){
-    var evs=cm[cam].slice().sort(function(a,b){return new Date(a.ts)-new Date(b.ts)});
-    var cls=[],mp=tlZv<1.5?16:tlZv<3?10:6;
-    evs.forEach(function(e){
-      var x=clamp((new Date(e.ts)-st)*px,0,tw);
-      var l=cls[cls.length-1];
-      if(l&&x-l.x<=mp){l.items.push(e);l.x=(l.x*(l.items.length-1)+x)/l.items.length;l.alert=l.alert||!!e.alert;l.pin=l.pin||!!e.pin}
-      else cls.push({x:x,items:[e],alert:!!e.alert,pin:!!e.pin});
-    });
-    parts.push('<div class="tl-lane"><div class="tl-label">'+esc(cam)+'</div><div class="tl-row">');
-    cls.forEach(function(cl){
-      var n=cl.items.length,f=cl.items[0],cs=cl.alert?'a':cl.pin?'p':'n';
-      var w=n>1?Math.min(16+Math.log2(n)*7,50):Math.min(8+tlZv*4,36);
-      if(tlZv>=6&&n===1)w=70;
-      var left=clamp(cl.x-w/2,0,Math.max(0,tw-w));
-      var ids=cl.items.map(function(e){return esc(e.id)}).join(',');
-      var label=n>1?n:(tlZv>=6?esc((f.text||'').slice(0,18)):'');
-      var timeStr='';
-      try{timeStr=new Date(f.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}catch(x){}
-      parts.push('<div class="tl-ev '+cs+(n>1?' cl':'')+'" style="left:'+left+'px;width:'+w+'px" data-ids="'+ids+'" data-cam="'+esc(cam)+'" data-time="'+timeStr+'" data-text="'+esc((f.text||'').slice(0,80))+'" data-count="'+n+'">'+label+'</div>');
-    });
-    parts.push('</div></div>');
-  });
-  parts.push('</div></div>');
-  c.innerHTML=parts.join('');
-}
+  var c=document.getElementById('tCon');if(!c.dataset.whl){c.dataset.whl='1';c.addEventListener('wheel',function(e){if(!(e.ctrlKey||e.metaKey||e.shiftKey))return;var t=c.querySelector('.tl-tracks');if(!t)return;e.preventDefault();var r=t.getBoundingClientRect(),x=clamp(e.clientX-r.left,0,r.width),ratio=(t.scrollLeft+x)/Math.max(1,t.scrollWidth);sTLZ(tlZv*(e.deltaY<0?1.12:.89),ratio)},{passive:false})}}
+function rTL(ev,h){var c=document.getElementById('tCon');uZUI();if(!ev||!ev.length){c.innerHTML='<div class="tl-empty">No events in last '+h+'h</div>';return}var now=new Date(),st=new Date(now.getTime()-h*3600000),ms=now-st,lw=110,vp=Math.max(c.clientWidth-lw-20,400),tw=Math.round(Math.max(vp,vp*tlZv)),px=tw/ms;var cm={};ev.forEach(function(e){(cm[e.cam]||(cm[e.cam]=[])).push(e)});var ti=tlZv>=8?5:tlZv>=5?10:tlZv>=2.5?15:h<=3?15:h<=6?30:h<=12?60:120;var html='<div class="tl-ruler"><div class="tl-ruler-inner" style="width:'+(tw+lw)+'px;padding-left:'+lw+'px">';for(var t=new Date(st);t<=now;t=new Date(t.getTime()+ti*60000)){var x=(t-st)*px;html+='<div class="tl-tick" style="left:'+(lw+x)+'px">'+t.getHours().toString().padStart(2,'0')+':'+t.getMinutes().toString().padStart(2,'0')+'</div>'}html+='</div></div><div class="tl-tracks"><div class="tl-tracks-inner" style="width:'+(tw+lw)+'px">';Object.keys(cm).forEach(function(cam){var evs=cm[cam].slice().sort(function(a,b){return new Date(a.ts)-new Date(b.ts)});var cls=[],mp=tlZv<1.5?16:tlZv<3?10:6;evs.forEach(function(e){var x=clamp((new Date(e.ts)-st)*px,0,tw);var l=cls[cls.length-1];if(l&&x-l.x<=mp){l.items.push(e);l.x=(l.x*(l.items.length-1)+x)/l.items.length;l.alert=l.alert||!!e.alert;l.pin=l.pin||!!e.pin}else cls.push({x:x,items:[e],alert:!!e.alert,pin:!!e.pin})});html+='<div class="tl-lane"><div class="tl-label">'+esc(cam)+'</div><div class="tl-row">';cls.forEach(function(cl){var n=cl.items.length,f=cl.items[0],cs=cl.alert?'a':cl.pin?'p':'n';var w=n>1?Math.min(16+Math.log2(n)*7,50):Math.min(8+tlZv*4,36);if(tlZv>=6&&n===1)w=70;var left=clamp(cl.x-w/2,0,Math.max(0,tw-w));var ids=cl.items.map(function(e){return esc(e.id)}).join(',');var label=n>1?n:(tlZv>=6?esc((f.text||'').slice(0,18)):'');html+='<div class="tl-ev '+cs+(n>1?' cl':'')+'" style="left:'+left+'px;width:'+w+'px" data-ids="'+ids+'" title="'+(n>1?n+' events':esc(f.text||''))+'">'+label+'</div>'});html+='</div></div>'});html+='</div></div>';c.innerHTML=html;var t=c.querySelector('.tl-tracks');if(t){t.scrollLeft=t.scrollWidth;t.addEventListener('click',function(e){var ev=e.target.closest('.tl-ev');if(ev){var ids=String(ev.dataset.ids||'').split(',').filter(Boolean);if(ids.length===1)sTD(ids[0]);else sTDC(ids)}})}}
 function sTDC(ids){if(ids.length)sTD(ids[0])}
 function sTD(id){
   // Switch to feed tab and scroll to the event
@@ -660,36 +684,119 @@ function sTD(id){
 }
 
 // SSE
-function sse(){var es=new EventSource('/events');es.onmessage=function(e){var m=JSON.parse(e.data);if(m.type==='stream_start'){mkFI(m);var a=document.getElementById('ad-'+m.camera_id);if(a)a.style.display='block'}if(m.type==='stream_token')uTk(m);if(m.type==='feed_item'){dFI(m);llPush(llScore(m),m.camera_id);var a=document.getElementById('ad-'+m.camera_id);if(a)a.style.display='none'}if(m.type==='gpu')uG(m.data,m.rotation,m.load_warning)};es.onerror=function(){es.close();setTimeout(sse,3000)}}
+function sse(){var es=new EventSource('/events');es.onmessage=function(e){var m=JSON.parse(e.data);
+  if(m.type==='stream_start'){if(currentView==='focus')mkFI(m);var a=document.getElementById('ad-'+m.camera_id);if(a)a.style.display='block'}
+  if(m.type==='stream_token'){if(currentView==='focus')uTk(m)}
+  if(m.type==='feed_item'){
+    if(currentView==='focus')dFI(m);
+    llPush(llScore(m),m.camera_id,m.trend);
+    updateBanner(m);
+    // Board view: update the camera's pinned situation + its mini feed
+    if(currentView==='board'&&!m.no_change){
+      if(!evData[m.item_id])evData[m.item_id]={camera_name:m.camera_name,time:m.time,thumb:m.thumb,text:m.text,is_alert:m.is_alert,alert_keywords:m.alert_keywords||[]};
+      updateCardSituation(m.camera_id,{text:m.text,danger:m.danger,trend:m.trend,time:m.time,is_alert:m.is_alert});
+      pushCardFeed(m);
+    }
+    var a=document.getElementById('ad-'+m.camera_id);if(a)a.style.display='none';
+  }
+  if(m.type==='zone_summary')updateZonePicture(m.zone,{text:m.text,time:m.time,danger:m.danger});
+  if(m.type==='gpu')uG(m.data,m.rotation,m.load_warning);
+};es.onerror=function(){es.close();setTimeout(sse,3000)}}
 
 // Settings
-var SK=['model','ollama_url','prompt','max_tokens','inference_size','analysis_interval','alert_keywords','telegram_token','telegram_chat_id','telegram_quiet_start','telegram_quiet_end','telegram_min_interval','telegram_on_alert','telegram_on_all','motion_sensitivity','motion_enabled','snapshot_on_every','snapshot_quality','feed_show_stable','feed_max_items','retain_days','retain_max_obs','retain_max_snap_mb','thumb_retain_days','cleanup_interval_min'];
-async function lS(){var [s,cm]=await Promise.all([fetch('/api/settings').then(function(r){return r.json()}),fetch('/api/cameras').then(function(r){return r.json()})]);SK.forEach(function(k){var e=document.getElementById('s-'+k);if(!e)return;if(k==='alert_keywords'){try{e.value=JSON.parse(s[k]||'[]').join(', ')}catch(x){e.value=s[k]||''}}else if(e.type==='checkbox')e.checked=s[k]==='true';else e.value=s[k]||''});showSt=s.feed_show_stable!=='false';document.getElementById('cL').innerHTML=cm.map(function(c){return'<div class="clr"><span>'+c.name+'</span><span style="color:var(--soft);font:600 10px var(--mono)">'+c.source+'</span><button class="bt bg" style="padding:3px 10px;font-size:10px" onclick="eC(\''+c.id+"','"+c.name+"','"+c.source+'\')">Edit</button><button class="bt br" style="padding:3px 10px;font-size:10px" onclick="dC(\''+c.id+'\')">Remove</button></div>'}).join('')}
+var SK=['model','ollama_url','prompt','situational','max_tokens','inference_size','analysis_interval','alert_keywords','telegram_token','telegram_chat_id','telegram_quiet_start','telegram_quiet_end','telegram_min_interval','telegram_on_alert','telegram_on_all','ntfy_topic','ntfy_server','ntfy_min_interval','motion_sensitivity','motion_enabled','snapshot_on_every','snapshot_quality','feed_show_stable','feed_max_items','retain_days','retain_max_obs','retain_max_snap_mb','thumb_retain_days','cleanup_interval_min'];
+async function lS(){var s=await(await fetch('/api/settings')).json();SK.forEach(function(k){var e=document.getElementById('s-'+k);if(!e)return;if(k==='alert_keywords'){try{e.value=JSON.parse(s[k]||'[]').join(', ')}catch(x){e.value=s[k]||''}}else if(e.type==='checkbox')e.checked=s[k]==='true';else e.value=s[k]||''});showSt=s.feed_show_stable!=='false';var cm=await(await fetch('/api/cameras')).json();document.getElementById('cL').innerHTML=cm.map(function(c){var z=c.zone||'Main';return'<div class="clr"><span>'+c.name+' <span style="color:var(--soft);font-weight:600;font-size:11px">['+z+']</span></span><span style="color:var(--soft);font:600 10px var(--mono)">'+c.source+'</span><button class="bt bg" style="padding:3px 10px;font-size:10px" onclick="eC(\''+c.id+"','"+c.name+"','"+c.source+"','"+z+'\')">Edit</button><button class="bt br" style="padding:3px 10px;font-size:10px" onclick="dC(\''+c.id+'\')">Remove</button></div>'}).join('')}
 async function svS(){var d={};SK.forEach(function(k){var e=document.getElementById('s-'+k);if(!e)return;if(k==='alert_keywords')d[k]=JSON.stringify(e.value.split(',').map(function(s){return s.trim()}).filter(Boolean));else if(e.type==='checkbox')d[k]=e.checked?'true':'false';else d[k]=e.value});await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});showSt=d.feed_show_stable==='true';T('Saved')}
 async function tgT(){T((await(await fetch('/api/test-telegram',{method:'POST'})).json()).ok?'Sent':'Failed')}
+async function ntfyT(){
+  // Save current ntfy fields first so the test uses them
+  var d={ntfy_topic:document.getElementById('s-ntfy_topic').value.trim(),ntfy_server:document.getElementById('s-ntfy_server').value.trim()||'https://ntfy.sh'};
+  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+  var r=await(await fetch('/api/test-ntfy',{method:'POST'})).json();T(r.ok?'Sent! Check your ntfy app':(r.error||'Failed'))
+}
 
 var PRESETS=[
-  {name:'Security',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',desc:'Threats, intruders, suspicious activity',prompt:"People count, actions, danger signs. Flag anything suspicious. One sentence."},
-  {name:'Detailed',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',desc:'Full scene breakdown',prompt:"Describe people, objects, vehicles, and actions in detail. Two sentences max."},
-  {name:'Alerts Only',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',desc:'Silent unless danger detected',prompt:"Only report if you see danger: violence, fire, weapons, break-in, injury. Otherwise reply: Clear."},
-  {name:'Traffic',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-1"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/><path d="M8 18h5"/></svg>',desc:'Road and pedestrian monitoring',prompt:"Count vehicles and pedestrians. Note accidents, congestion, or jaywalking. One sentence."},
-  {name:'Retail',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 2L3 7v13a1 1 0 001 1h16a1 1 0 001-1V7l-3-5z"/><line x1="3" y1="7" x2="21" y2="7"/><path d="M16 11a4 4 0 01-8 0"/></svg>',desc:'Store and customer activity',prompt:"Count customers, note crowding levels, detect potential theft or unusual behavior. One sentence."},
-  {name:'Home',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',desc:'Family, packages, visitors',prompt:"Identify who is visible, note packages, strangers, or open doors/windows. One sentence."},
-  {name:'Parking',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 17V7h4a4 4 0 010 6H9"/></svg>',desc:'Lot occupancy and events',prompt:"Count parked cars, note available spots, detect break-ins or accidents. One sentence."},
-  {name:'Pet Watch',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9"/></svg>',desc:'Track pets and animals',prompt:"Identify any animals visible, their activity and location. Note if pets are in restricted areas. One sentence."},
-  {name:'Minimal',ico:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',desc:'Ultra-short, fast inference',prompt:"One sentence max. What changed?"}
+  {name:'Situational',prompt:"Describe who is present and exactly what they are doing. Read their intent and behavior. Flag suspicious or criminal activity the moment you see it. One sentence."},
+  {name:'Crime Watch',prompt:"Watch for criminal behavior: concealing or stealing items, forcing entry, breaking in, fighting, grabbing or threatening someone, fleeing, or casing the area. Describe what you see. One sentence."},
+  {name:'Security',prompt:"People count, actions, anything dangerous or out of place. One sentence."},
+  {name:'Detailed',prompt:"Describe everyone present, their clothing, actions, objects, and vehicles. Note anything unusual. Two sentences max."},
+  {name:'Alerts Only',prompt:"Only respond if there is danger or crime: violence, weapon, theft, break-in, fire, someone hurt. Otherwise reply only: Clear."},
+  {name:'Theft & Retail',prompt:"Watch shoppers for theft behavior: concealing merchandise, removing tags, nervous glancing, blocking views, or leaving without paying. One sentence."},
+  {name:'Intrusion',prompt:"Watch for intruders: people climbing, forcing doors or windows, prying, sneaking, or entering areas they should not. One sentence."},
+  {name:'Crowd Safety',prompt:"Assess the crowd: is it flowing or compressing, calm or panicking, are people falling or being pushed. Flag any crush risk. One sentence."},
+  {name:'Person Safety',prompt:"Watch for someone in danger: being followed, cornered, grabbed, dragged, or fleeing. Note anyone in distress. One sentence."},
+  {name:'Traffic',prompt:"Vehicles, pedestrians, flow, and any accident, collision, or vehicle where it should not be. One sentence."},
+  {name:'Home',prompt:"Who is visible, packages, deliveries, strangers at the door, open doors or windows. One sentence."}
 ];
-var activePreset=-1;
 function initPresets(){
   var el=document.getElementById('promptPresets');if(!el)return;
-  var cur=document.getElementById('s-prompt').value;
-  activePreset=PRESETS.findIndex(function(p){return p.prompt===cur});
-  el.innerHTML=PRESETS.map(function(p,i){return'<button class="preset-card'+(i===activePreset?' active':'')+'" onclick="setPreset('+i+')"><span class="pc-ico">'+p.ico+'</span><span class="pc-name">'+p.name+'</span><span class="pc-desc">'+p.desc+'</span></button>'}).join('');
+  el.innerHTML=PRESETS.map(function(p,i){return'<button class="bt bg" style="padding:4px 10px;font-size:10px" onclick="setPreset('+i+')">'+p.name+'</button>'}).join('');
 }
-function setPreset(i){document.getElementById('s-prompt').value=PRESETS[i].prompt;activePreset=i;initPresets();T('Preset: '+PRESETS[i].name)}
-function oAC(){document.getElementById('ce').value='';document.getElementById('cn').value='';document.getElementById('cso').value='';document.getElementById('cmT').textContent='Add Camera';document.getElementById('acM').classList.add('op')}
-function eC(i,n,s){document.getElementById('ce').value=i;document.getElementById('cn').value=n;document.getElementById('cso').value=s;document.getElementById('cmT').textContent='Edit';document.getElementById('acM').classList.add('op')}
-async function sC(){var i=document.getElementById('ce').value,n=document.getElementById('cn').value.trim(),s=document.getElementById('cso').value.trim();if(!n||!s){T('Fill fields');return}await fetch(i?'/api/cameras/'+i:'/api/cameras',{method:i?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:s})});cM();T(i?'Updated':'Added');lS();bCG(await(await fetch('/api/cameras')).json())}
+function setPreset(i){document.getElementById('s-prompt').value=PRESETS[i].prompt;T('Preset: '+PRESETS[i].name)}
+function oAC(){document.getElementById('ce').value='';document.getElementById('cn').value='';document.getElementById('cso').value='';document.getElementById('czone').value='';populateZoneList();document.getElementById('cmT').textContent='Add Camera';document.getElementById('acM').classList.add('op')}
+
+// ===== ONVIF auto-discovery flow =====
+var onSelected=null,onPollTimer=null;
+async function oOnvif(){
+  populateZoneList();
+  document.getElementById('onStep1').style.display='block';
+  document.getElementById('onStep2').style.display='none';
+  document.getElementById('onCloseRow').style.display='flex';
+  document.getElementById('onDevices').innerHTML='';
+  document.getElementById('onStatus').textContent='';
+  document.getElementById('onM').classList.add('op');
+  // Check availability
+  try{var a=await(await fetch('/api/onvif-available')).json();
+    if(!a.available){document.getElementById('onStep1').innerHTML='<div style="padding:14px;background:#1a1d24;border-radius:12px;font-size:13px;line-height:1.6">ONVIF support isn\'t installed yet. Run this once, then restart Mevin:<br><code style="display:block;background:#0d0f13;padding:8px 10px;border-radius:8px;margin-top:8px;color:#b8f7e6;font-family:var(--mono)">pip install onvif-zeep wsdiscovery</code></div>'}
+  }catch(e){}
+}
+async function onScan(){
+  var btn=document.getElementById('onScanBtn');btn.disabled=true;btn.textContent='Scanning...';
+  document.getElementById('onStatus').textContent='Broadcasting on your network (about 5 seconds)...';
+  document.getElementById('onDevices').innerHTML='';
+  await fetch('/api/onvif-discover',{method:'POST'});
+  if(onPollTimer)clearInterval(onPollTimer);
+  onPollTimer=setInterval(async function(){
+    var r=await(await fetch('/api/onvif-discover')).json();
+    if(r.status==='done'){
+      clearInterval(onPollTimer);btn.disabled=false;btn.textContent='Scan again';
+      if(!r.devices.length){document.getElementById('onStatus').textContent='No ONVIF devices found. Make sure cameras are on the same network.';return}
+      document.getElementById('onStatus').textContent='Found '+r.devices.length+' device'+(r.devices.length>1?'s':'')+'. Pick one to connect:';
+      document.getElementById('onDevices').innerHTML=r.devices.map(function(d){
+        return '<div class="sci" style="cursor:pointer" onclick="onPick(\''+d.ip+'\','+d.port+')"><span class="sct rtsp">ONVIF</span><span class="scn">'+d.ip+'</span><span class="scs">port '+d.port+'</span><button class="sca">Connect</button></div>'
+      }).join('');
+    }
+  },1000);
+}
+function onPick(ip,port){
+  onSelected={ip:ip,port:port};
+  document.getElementById('onDevTitle').textContent='Connect to '+ip;
+  document.getElementById('onStep1').style.display='none';
+  document.getElementById('onStep2').style.display='block';
+  document.getElementById('onCloseRow').style.display='none';
+  document.getElementById('onStreams').innerHTML='';
+}
+function onBack(){document.getElementById('onStep1').style.display='block';document.getElementById('onStep2').style.display='none';document.getElementById('onCloseRow').style.display='flex'}
+async function onConnect(){
+  if(!onSelected)return;
+  var btn=document.getElementById('onConnectBtn');btn.disabled=true;btn.textContent='Connecting...';
+  var user=document.getElementById('onUser').value.trim(),pass=document.getElementById('onPass').value,zone=document.getElementById('onZone').value.trim()||'Main';
+  var r=await(await fetch('/api/onvif-connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:onSelected.ip,port:onSelected.port,user:user,password:pass})})).json();
+  btn.disabled=false;btn.textContent='Get cameras';
+  if(!r.ok){document.getElementById('onStreams').innerHTML='<div style="padding:10px;color:#ff8a8a;font-size:12px">'+(r.error||'Connection failed')+'. Check the password.</div>';return}
+  if(!r.streams.length){document.getElementById('onStreams').innerHTML='<div style="padding:10px;color:var(--soft);font-size:12px">No streams found on this device.</div>';return}
+  document.getElementById('onStreams').innerHTML='<div style="font-size:12px;color:var(--soft);margin-bottom:6px">'+r.streams.length+' channel'+(r.streams.length>1?'s':'')+' found:</div>'+r.streams.map(function(s){return'<div class="sci"><span class="sct rtsp">RTSP</span><span class="scn">'+s.name+'</span></div>'}).join('')+'<button class="bt bb" style="width:100%;margin-top:10px" onclick="onAddAll()">Add all '+r.streams.length+' camera'+(r.streams.length>1?'s':'')+'</button>';
+}
+async function onAddAll(){
+  if(!onSelected)return;
+  var user=document.getElementById('onUser').value.trim(),pass=document.getElementById('onPass').value,zone=document.getElementById('onZone').value.trim()||'Main';
+  var r=await(await fetch('/api/onvif-add-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:onSelected.ip,port:onSelected.port,user:user,password:pass,zone:zone})})).json();
+  if(r.ok){T('Added '+r.added.length+' cameras');cM();boardCams=await(await fetch('/api/cameras')).json();bCG(boardCams);if(currentView==='board')buildBoard()}
+  else T(r.error||'Failed')
+}
+function eC(i,n,s,z){document.getElementById('ce').value=i;document.getElementById('cn').value=n;document.getElementById('cso').value=s;document.getElementById('czone').value=z||'Main';populateZoneList();document.getElementById('cmT').textContent='Edit';document.getElementById('acM').classList.add('op')}
+async function populateZoneList(){try{var z=await(await fetch('/api/zones')).json();document.getElementById('zoneList').innerHTML=Object.keys(z).map(function(n){return'<option value="'+esc(n)+'">'}).join('')}catch(e){}}
+async function sC(){var i=document.getElementById('ce').value,n=document.getElementById('cn').value.trim(),s=document.getElementById('cso').value.trim(),z=document.getElementById('czone').value.trim()||'Main';if(!n||!s){T('Fill fields');return}await fetch(i?'/api/cameras/'+i:'/api/cameras',{method:i?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:s,zone:z})});cM();T(i?'Updated':'Added');lS();bCG(await(await fetch('/api/cameras')).json());if(currentView==='board')buildBoard()}
 async function dC(i){if(!confirm('Remove?'))return;await fetch('/api/cameras/'+i,{method:'DELETE'});T('Removed');lS();bCG(await(await fetch('/api/cameras')).json())}
 async function lG(){var d=await(await fetch('/api/gallery')).json();document.getElementById('galG').innerHTML=d.length?d.map(function(s){return'<div class="gli" onclick="document.getElementById(\'xI\').src=\'/snapshot/'+s.path+'\';document.getElementById(\'xV\').classList.add(\'op\')"><img src="/snapshot/'+s.path+'" loading="lazy"></div>'}).join(''):'<div class="empty-state" style="grid-column:1/-1">No snapshots</div>'}
 async function lDS(){try{var d=await(await fetch('/api/data-stats')).json();document.getElementById('dS').innerHTML='<div style="flex:1"><div style="font-size:10px;color:var(--soft);text-transform:uppercase;font-weight:760;margin-bottom:2px">DB</div><div style="font-size:15px;font-weight:760">'+(d.db_size_mb||0)+' MB</div></div><div style="flex:1"><div style="font-size:10px;color:var(--soft);text-transform:uppercase;font-weight:760;margin-bottom:2px">Snaps</div><div style="font-size:15px;font-weight:760">'+(d.snap_size_mb||0)+' MB</div></div><div style="flex:1"><div style="font-size:10px;color:var(--soft);text-transform:uppercase;font-weight:760;margin-bottom:2px">Events</div><div style="font-size:15px;font-weight:760">'+(d.total_obs||0)+'</div></div>'}catch(e){}}
@@ -700,37 +807,19 @@ async function aVF(){var p=document.getElementById('vfP').value.trim(),n=documen
 var qSI;async function qSc(){document.getElementById('scO').classList.add('op');document.getElementById('scOB').innerHTML='<div style="padding:14px;color:var(--soft);text-align:center">Scanning...</div>';document.getElementById('qSB').disabled=true;await fetch('/api/scan',{method:'POST'});qSI=setInterval(async function(){var r=await(await fetch('/api/scan')).json();var h='';r.usb.forEach(function(c){h+='<div class="sci"><span class="sct usb">USB</span><span class="scn">'+c.name+'</span><span class="scs">'+c.source+'</span><button class="sca" onclick="aSM(\''+c.name+"','"+c.source+'\')">+ Add</button></div>'});r.network.forEach(function(c){h+='<div class="sci"><span class="sct '+c.type+'">'+c.type.toUpperCase()+'</span><span class="scn">'+c.name+'</span><span class="scs">'+c.source+'</span><button class="sca" onclick="aSM(\''+c.name+"','"+c.source+'\')">+ Add</button></div>'});if(!h&&r.status==='done')h='<div style="padding:14px;color:var(--soft);text-align:center">None found</div>';document.getElementById('scOB').innerHTML=h;if(r.status==='done'){clearInterval(qSI);document.getElementById('qSB').disabled=false}},1500)}
 async function aSM(n,s){await fetch('/api/cameras',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,source:s})});T('Added: '+n);bCG(await(await fetch('/api/cameras')).json())}
 var sSI;async function sSc(){document.getElementById('scR').style.display='block';document.getElementById('scSt').textContent='Scanning...';document.getElementById('scL').innerHTML='';document.getElementById('scB').disabled=true;await fetch('/api/scan',{method:'POST'});sSI=setInterval(async function(){var r=await(await fetch('/api/scan')).json();document.getElementById('scSt').textContent=r.status;var h='';r.usb.forEach(function(c){h+='<div class="sci"><span class="sct usb">USB</span><span class="scn">'+c.name+'</span><button class="sca" onclick="aSM(\''+c.name+"','"+c.source+'\')">+</button></div>'});r.network.forEach(function(c){h+='<div class="sci"><span class="sct '+c.type+'">'+c.type.toUpperCase()+'</span><span class="scn">'+c.name+'</span><button class="sca" onclick="aSM(\''+c.name+"','"+c.source+'\')">+</button></div>'});document.getElementById('scL').innerHTML=h||'<div style="padding:10px;color:var(--soft);text-align:center">None</div>';if(r.status==='done'){clearInterval(sSI);document.getElementById('scB').disabled=false}},1500)}
-async function lC(){try{var items=await(await fetch('/api/recent-feed?limit=50')).json();if(!items.length)return;if(eS)eS.remove();items.reverse().forEach(function(d){evData[d.item_id]={camera_name:d.camera_name,time:d.time,thumb:d.thumb,text:d.text||'',is_alert:!!d.is_alert,no_change:false,alert_keywords:d.alert_keywords||[],motion:undefined};if(d.thumb&&d.camera_id)camThumbs[d.camera_id]=d.thumb;var v=document.createElement('div');v.className='fi'+(d.is_alert?' alert':'')+(d.pinned?' pinned-fi':'');v.id='fi-'+d.item_id;v.dataset.text=(d.text||'').toLowerCase();v.dataset.pinned=d.pinned?'1':'0';v.dataset.alert=d.is_alert?'1':'0';v.style.cursor='pointer';v.onclick=function(e){if(!e.target.closest('.fi-btns'))openEv(d.item_id)};var th=d.thumb?'<div class="fi-thumb"><img src="data:image/jpeg;base64,'+d.thumb+'"></div>':'';var badges=(d.is_alert?'<span class="fi-badge alert">Alert</span>':'<span class="fi-badge changed">Changed</span>')+(d.pinned?'<span class="fi-badge pin">Pinned</span>':'');var kws=d.alert_keywords&&d.alert_keywords.length?'<div class="fi-kws">'+d.alert_keywords.map(function(k){return'<span class="fi-kw">'+k+'</span>'}).join('')+'</div>':'';v.innerHTML=th+'<div class="fi-content"><div class="fi-row1"><span class="fi-cam">'+d.camera_name+'</span><span class="fi-time">'+d.time+'</span>'+badges+'</div>'+kws+'<div class="fi-text" id="tx-'+d.item_id+'">'+fmt(d.text)+'</div></div>';fS.prepend(v);tot++});document.getElementById('fN').textContent=tot}catch(e){}}
+async function lC(){try{var items=await(await fetch('/api/recent-feed?limit=50')).json();if(!items.length)return;if(eS)eS.remove();items.reverse().forEach(function(d){evData[d.item_id]={camera_name:d.camera_name,time:d.time,thumb:d.thumb,text:d.text||'',is_alert:!!d.is_alert,no_change:false,alert_keywords:d.alert_keywords||[],motion:undefined};var v=document.createElement('div');v.className='fi'+(d.is_alert?' alert':'')+(d.pinned?' pinned-fi':'');v.id='fi-'+d.item_id;v.dataset.text=(d.text||'').toLowerCase();v.dataset.pinned=d.pinned?'1':'0';v.dataset.alert=d.is_alert?'1':'0';v.style.cursor='pointer';v.onclick=function(e){if(!e.target.closest('.fi-btns'))openEv(d.item_id)};var th=d.thumb?'<div class="fi-thumb"><img src="data:image/jpeg;base64,'+d.thumb+'"></div>':'';var badges=(d.is_alert?'<span class="fi-badge alert">Alert</span>':'<span class="fi-badge changed">Changed</span>')+(d.pinned?'<span class="fi-badge pin">Pinned</span>':'');var kws=d.alert_keywords&&d.alert_keywords.length?'<div class="fi-kws">'+d.alert_keywords.map(function(k){return'<span class="fi-kw">'+k+'</span>'}).join('')+'</div>':'';v.innerHTML=th+'<div class="fi-content"><div class="fi-row1"><span class="fi-cam">'+d.camera_name+'</span><span class="fi-time">'+d.time+'</span>'+badges+'</div>'+kws+'<div class="fi-text" id="tx-'+d.item_id+'">'+fmt(d.text)+'</div></div>';fS.prepend(v);tot++});document.getElementById('fN').textContent=tot}catch(e){}}
 
-// Init - parallel fetch for fast startup
+// Init
 (async function(){
-  try{
-    // Fetch everything in parallel
-    var [sRes,camRes,gpuRes,focRes,paRes]=await Promise.all([
-      fetch('/api/settings').then(function(r){return r.json()}).catch(function(){return{}}),
-      fetch('/api/cameras').then(function(r){return r.json()}).catch(function(){return[]}),
-      fetch('/api/gpu').then(function(r){return r.json()}).catch(function(){return{available:false}}),
-      fetch('/api/focus').then(function(r){return r.json()}).catch(function(){return{focus:null}}),
-      fetch('/api/analysis-status').then(function(r){return r.json()}).catch(function(){return{paused:false}})
-    ]);
-    // Apply settings
-    if(sRes.setup_done==='true'){var o=document.getElementById('sov');if(o)o.remove()}
-    // Load recent feed first (populates camThumbs for strip thumbnails)
-    await lC();
-    // Build cameras + lifelines (uses camThumbs)
-    bCG(camRes);
-    // Start live updates
-    sse();
-    // Load timeline
-    lTL(3);
-    // GPU
-    try{uG(gpuRes)}catch(e){}
-    // Focus state
-    focus=focRes.focus;
-    if(focus){document.getElementById('gF').textContent='Focus: '+focus;document.getElementById('rfB').style.display='flex'}
-    // Pause state
-    if(paRes.paused){isPaused=true;document.getElementById('paT').textContent='Resume';document.getElementById('paB').style.borderColor='var(--red)';document.getElementById('paB').style.color='var(--red)'}
-  }catch(e){console.error('[Init]',e)}
+  try{var s=await(await fetch('/api/settings')).json();if(s.setup_done==='true'){var o=document.getElementById('sov');if(o)o.remove()}}catch(e){}
+  try{var cams=await(await fetch('/api/cameras')).json();boardCams=cams;bCG(cams)}catch(e){console.error('cameras load',e)}
+  try{await lC()}catch(e){}
+  sse();llInit();startBoardSnapshots();
+  try{lTL(3)}catch(e){}
+  buildBoard();  // always build the board
+  try{uG(await(await fetch('/api/gpu')).json())}catch(e){}
+  try{var f=await(await fetch('/api/focus')).json();focus=f.focus;if(focus){document.getElementById('gF').textContent='Focus: '+focus;document.getElementById('rfB').style.display='flex'}}catch(e){}
+  try{var ps=await(await fetch('/api/analysis-status')).json();if(ps.paused){isPaused=true;document.getElementById('paT').textContent='Resume';document.getElementById('paB').style.borderColor='var(--red)';document.getElementById('paB').style.color='var(--red)'}}catch(e){}
 })();
 setInterval(function(){document.getElementById('clk').textContent=new Date().toLocaleTimeString()},1000);
 </script></body></html>

@@ -8,14 +8,15 @@ snapshots/
 
 # Python
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
 *.egg-info/
 dist/
 build/
 *.egg
-.env
-venv/
 .venv/
+venv/
+env/
 
 # IDE
 .vscode/
@@ -27,4 +28,7 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
-desktop.ini
+Desktop.ini
+
+# Environment
+.env

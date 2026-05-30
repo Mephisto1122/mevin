@@ -2,16 +2,16 @@
 
 # Mevin
 
-**Real-time AI video analysis — private, local, open-source.**
+**Real-time situational video understanding — private, local, open-source.**
 
-Point any camera at a scene and get continuous natural-language descriptions of what's happening, with instant alerts when things go wrong.
+Mevin doesn't just describe what's on camera. It reads the *situation* — who's there, what they're doing, what their intent looks like, and whether things are escalating or calming — in real time, on your own hardware.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Ollama](https://img.shields.io/badge/Ollama-000000?style=flat-square&logo=ollama&logoColor=white)](https://ollama.com)
 [![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=flat-square&logo=opencv&logoColor=white)](https://opencv.org)
 [![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-Personal%20Use-yellow?style=flat-square)](LICENSE)
 
 No cloud &nbsp;·&nbsp; No subscriptions &nbsp;·&nbsp; Runs on your hardware
 
@@ -19,174 +19,250 @@ No cloud &nbsp;·&nbsp; No subscriptions &nbsp;·&nbsp; Runs on your hardware
 
 ---
 
-## Overview
+## What makes it different
 
-Mevin connects to your cameras (USB, RTSP, IP, or video files), captures frames, and sends them to a local vision-language model through Ollama. The model describes what it sees in real time. When it detects keywords you care about — weapons, fire, intruders — it triggers alerts and optionally notifies you on Telegram.
+Most camera software detects *objects* — "person, car, bag." Mevin reads *situations*. It connects each camera to a local vision-language model through [Ollama](https://ollama.com), but wraps it in a situational brain:
 
-Everything stays on your machine. The only network calls are to your own Ollama instance and (optionally) the Telegram API for push notifications.
+- **It learns what's normal** for each camera, then reasons about what *changed*.
+- **It remembers** the last several moments, so it understands a sequence — "a person entered, then started forcing the door" — not just a single frame.
+- **It tracks a trajectory** — whether danger is *escalating*, *stable*, or *calming*.
+- **It connects cameras** watching the same area into one big-picture narrative.
 
-## Features
+Everything stays on your machine. The only network calls are to your own Ollama instance and, optionally, a push service for phone alerts.
 
-**Analysis** — multi-camera round-robin with per-camera focus lock, streaming token-by-token output, motion-gated inference to save GPU cycles, configurable prompt presets, smart response cleaning that strips VLM preamble and thinking blocks.
-
-**Dashboard** — split-panel layout with live event feed, resizable panels, semantic text highlighting (people, actions, objects, danger words), click-to-expand event detail overlay, per-camera danger sparklines, zoomable timeline with smart scroll-to-events.
-
-**Alerts** — keyword matching with negation awareness ("no weapon" won't trigger "weapon"), Telegram notifications with photos, quiet hours, configurable cooldown intervals.
-
-**Infrastructure** — SQLite with WAL mode, async observation writer, GPU monitoring (VRAM/temp/utilization), automatic data retention and cleanup, optional auth token, full REST API with OpenAPI docs.
+<img width="2543" height="1353" alt="Board view" src="https://github.com/user-attachments/assets/bdeec7c6-88db-4151-9eea-83200c2f2763" />
+<img width="2559" height="1358" alt="Focus view" src="https://github.com/user-attachments/assets/8ae147fe-235c-48dc-b81f-f466475daec0" />
+<img width="1759" height="1307" alt="Settings" src="https://github.com/user-attachments/assets/25ce3220-0d86-4c13-a7e8-327082d90cbd" />
 
 ## Quick start
 
-### 1. Install Ollama and pull a vision model
+**One command** — the installer checks Python + Ollama, installs everything, pulls the model, and launches:
+
+```bash
+# Mac / Linux
+./install.sh
+
+# Windows — double-click install.bat
+```
+
+**Manual:**
 
 ```bash
 ollama pull gemma3:4b
-```
-
-Other supported models: `llava`, `llava-llama3`, `moondream`, `minicpm-v` — anything on Ollama that accepts images.
-
-### 2. Install dependencies
-
-```bash
 pip install -r requirements.txt
-```
-
-### 3. Run
-
-```bash
 python mevin.py
 ```
 
+Then open **http://localhost:5555**. A setup wizard walks you through your first camera.
+
 ```
 ============================================================
-  MEVIN (FastAPI)
+  MEVIN - real-time situational video analysis
 ============================================================
-  Model:     gemma3:4b
-  Cameras:   1
+  Model:       gemma3:4b  (50 tokens)
+  Mode:        Situational (reads intent + trend)
+  Analysis:    parallel per-camera, 2s interval
+  Cameras:     1
     - Camera 1 (0)
-  Dashboard: http://localhost:5555
-  API Docs:  http://localhost:5555/docs
-  Retention: 30d / max 5000 obs / 2000MB snaps
+  Workers:     separate process (PID 12345) - GIL isolated
+  Dashboard:   http://localhost:5555
+  API Docs:    http://localhost:5555/docs
 ============================================================
 ```
 
-Open **http://localhost:5555** — the setup wizard walks you through connecting your first camera.
+> **Models:** `gemma3:4b` is the default — solid, reliable descriptions. For maximum speed on many cameras switch to `moondream` (~1–2 s/frame); it auto-gets a compact prompt. Anything on Ollama that accepts images works (`llava`, `minicpm-v`, etc.).
 
-## Camera sources
+## Connecting cameras
+
+**Auto-discover (easiest)** — click **Discover** in the app. Mevin finds Hikvision, Dahua, Reolink, NVRs, and any ONVIF camera on your network, pulls their stream URLs automatically, and adds every channel in one click — no URLs to type. Enable it once:
+
+```bash
+pip install -r requirements-onvif.txt
+```
+
+**Manual** — click **Add** and enter a webcam index (`0`), an RTSP URL, or a video-file path:
 
 | Type | Source format | Example |
 |------|--------------|---------|
 | USB webcam | Device index | `0` |
-| Hikvision | RTSP | `rtsp://admin:PASS@IP:554/Streaming/Channels/102` |
+| Hikvision / NVR | RTSP | `rtsp://admin:PASS@IP:554/Streaming/Channels/102` |
 | Dahua | RTSP | `rtsp://admin:PASS@IP:554/cam/realmonitor?channel=1&subtype=1` |
-| Tapo | RTSP | `rtsp://USER:PASS@IP:554/stream2` |
 | Reolink | RTSP | `rtsp://admin:PASS@IP:554/h264Preview_01_sub` |
+| Tapo | RTSP | `rtsp://USER:PASS@IP:554/stream2` |
 | Phone (IP Webcam) | HTTP | `http://PHONE_IP:8080/video` |
 | Video file | File path | `/path/to/footage.mp4` |
 
-The built-in scanner can auto-discover USB and network cameras from the dashboard.
+## Phone access
+
+- **Same WiFi:** open `http://<PC-IP>:5555` on your phone — the dashboard is mobile-responsive.
+- **Anywhere:** install [Tailscale](https://tailscale.com) (free) on the PC and phone — reach Mevin remotely with no port-forwarding.
+- **Push alerts:** in Settings, set an **ntfy** topic (install the [ntfy app](https://ntfy.sh), subscribe, done — no account) or add a **Telegram** bot token. Alerts fan out to both.
+
+## How it works
+
+### Situational analysis
+
+```
+Camera frame
+   │  motion check (skips static frames before they reach the GPU)
+   ▼
+VLM (moondream / gemma3) ── told the camera's baseline + recent history
+   │
+   ▼
+Scene Memory ── learns "normal", tracks danger trend (rising/stable/falling)
+   │
+   ▼
+Board + alerts + phone push
+```
+
+Each camera keeps its own **Scene Memory**: an auto-learned baseline of what's normal, a rolling history of recent moments, and a danger trail that yields the *trend*. The model is handed this context, so its answer is situational — "a customer who was browsing has collapsed and isn't moving; escalating" — not a flat caption. The context adapts to the model: small models like moondream get a compact prompt, larger ones get the full reasoning block.
+
+### Scene matching (the big picture)
+
+Assign cameras to a **zone**. When a zone has two or more cameras watching the same area, Mevin periodically combines their individual reads into one overall narrative — "a person left the building (Cam 1), crossed the lot (Cam 2), and is now waiting by the gate (Cam 3)." Cameras stop being separate feeds and become one understanding.
+
+### Real-time, process-isolated
+
+Analysis runs in a **separate process** (`mevin_worker.py`), launched automatically. Python has one lock per process (the GIL); by splitting analysis from the web server, heavy VLM work never freezes the dashboard.
+
+```
+┌─ web process (mevin.py) ──────┐        ┌─ worker process ──────────┐
+│ cameras, MJPEG, dashboard,    │  HTTP  │ motion + VLM + scene      │
+│ SSE, API, SQLite              │◄──────►│ memory + zone synthesis   │
+│  • owns the cameras           │ frames │  • own GIL, fully isolated│
+│  • relays worker events → SSE │ events │  • fetches frames, never  │
+│                               │        │    opens cameras itself   │
+└───────────────────────────────┘        └───────────────────────────┘
+        shared state via SQLite (WAL) + a heartbeat
+```
+
+Three things make it both fast and safe:
+
+- **Frames over localhost** — the worker requests frames from the web process instead of opening cameras itself, so there's no double-open and camera handling stays in one place.
+- **Always live** — each analysis fetches the *freshest* frame the instant the GPU is free, so the VLM sees the current moment, never a frame that went stale waiting in the queue.
+- **Heartbeat fallback** — if the worker dies, the web process detects the stale heartbeat and resumes analysis in-thread automatically.
+
+Cameras are analyzed **in parallel**, paced by `max(interval, inference time)` so the GPU is never idle when busy. A semaphore serializes inference on a single GPU; raise `MEVIN_GPU_SLOTS` to run several at once on a bigger card. Set `MEVIN_WORKERS=0` to run everything in one process.
+
+### Two views
+
+- **Board** — every camera as a self-contained card: live tile, its own danger lifeline, an always-visible pinned situation with an ESCALATING/CALMING badge, and its own recent feed. Zones show a "Big Picture" banner that turns red when danger is high.
+- **Focus** — one big camera with the global feed and a zoomable timeline, for deep-dive.
+
+### Lightweight streaming
+
+Each camera is encoded **once** by a shared background encoder; all viewers read that buffer, so ten browser tabs cost one encode, not ten. Board tiles poll snapshots (looks live, ~20× lighter than holding live MJPEG); only the focused camera uses a true live stream.
 
 ## Prompt presets
 
-| Preset | Prompt |
-|--------|--------|
-| Security | People count, actions, danger signs. Flag anything suspicious. One sentence. |
-| Detailed | Describe people, objects, vehicles, and actions in detail. Two sentences max. |
-| Alerts Only | Only report if you see danger: violence, fire, weapons, break-in, injury. Otherwise reply: Clear. |
-| Traffic | Count vehicles and pedestrians. Note accidents, congestion, or jaywalking. One sentence. |
-| Retail | Count customers, note crowding levels, detect potential theft or unusual behavior. One sentence. |
-| Home | Identify who is visible, note packages, strangers, or open doors/windows. One sentence. |
-| Parking | Count parked cars, note available spots, detect break-ins or accidents. One sentence. |
-| Pet Watch | Identify any animals visible, their activity and location. Note if pets are in restricted areas. One sentence. |
-| Minimal | One sentence max. What changed? |
+| Preset | Reads for |
+|--------|-----------|
+| Situational | Who's present, what they're doing, intent; flags crime live |
+| Crime Watch | Concealing/stealing, forcing entry, fighting, casing the area |
+| Security | General danger and anything out of place |
+| Detailed | Full description — clothing, objects, vehicles |
+| Alerts Only | Silent unless there's danger or crime |
+| Theft & Retail | Concealment, tag removal, leaving without paying |
+| Intrusion | Climbing, prying, sneaking, entering restricted areas |
+| Crowd Safety | Density, panic, crush risk |
+| Person Safety | Following, cornering, dragging, distress |
+| Traffic | Flow, collisions, vehicles where they shouldn't be |
+| Home | Deliveries, strangers, open doors/windows |
 
-Custom prompts are fully supported — the presets are starting points.
+Custom prompts are fully supported — presets are starting points.
 
 ## Configuration
 
-All settings are stored in SQLite and editable from the dashboard settings page.
+All settings live in SQLite and are editable from the dashboard.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `model` | `gemma3:4b` | Ollama model name |
+| `model` | `gemma3:4b` | Ollama vision model |
 | `ollama_url` | `http://localhost:11434` | Ollama API endpoint |
-| `analysis_interval` | `3` | Seconds between analysis cycles |
-| `inference_size` | `768` | Max image dimension sent to VLM |
-| `max_tokens` | `80` | Max response tokens |
+| `situational` | `true` | Read situations (baseline + history + trend) |
+| `zone_synthesis` | `true` | Combine same-zone cameras into one big picture |
+| `analysis_interval` | `2` | Seconds between analyses per camera |
+| `inference_size` | `768` | Max image dimension sent to the VLM |
+| `max_tokens` | `50` | Max response tokens |
 | `motion_sensitivity` | `0.3` | Motion threshold (% pixels changed) |
-| `motion_enabled` | `true` | Skip analysis when no motion detected |
-| `alert_keywords` | *(40+ default words)* | Comma-separated trigger words |
-| `telegram_token` | — | Telegram bot token |
-| `telegram_chat_id` | — | Telegram chat ID for notifications |
-| `telegram_quiet_start` | — | Quiet hours start (e.g. `23:00`) |
-| `telegram_quiet_end` | — | Quiet hours end (e.g. `07:00`) |
-| `telegram_min_interval` | `30` | Min seconds between Telegram messages |
-| `snapshot_quality` | `90` | JPEG quality for saved snapshots |
+| `motion_enabled` | `true` | Skip analysis when nothing moves |
+| `alert_keywords` | *(76 crime/behavior words)* | Trigger words (negation-aware) |
+| `ntfy_topic` | — | ntfy push topic |
+| `ntfy_server` | `https://ntfy.sh` | ntfy server |
+| `telegram_token` / `telegram_chat_id` | — | Telegram push |
+| `telegram_quiet_start` / `_end` | — | Quiet hours |
 | `retain_days` | `30` | Delete events older than N days |
 | `retain_max_obs` | `5000` | Max stored observations |
-| `retain_max_snap_mb` | `2000` | Max snapshot storage in MB |
+| `retain_max_snap_mb` | `2000` | Max snapshot storage (MB) |
 
 ### Environment variables
 
 | Variable | Description |
 |----------|-------------|
-| `MEVIN_TOKEN` | Set to require auth token for all API requests |
+| `MEVIN_WORKERS` | `1` (default) runs the isolated analysis process; `0` analyzes in-process |
+| `MEVIN_GPU_SLOTS` | Concurrent VLM inferences (default `1`; raise for multi-GPU / big cards) |
+| `MEVIN_TOKEN` | Set to require an auth token on all API requests |
 
 ## API
 
-Interactive docs available at `/docs` when running. Key endpoints:
+Interactive docs at `/docs`. Selected endpoints:
 
 ```
-GET   /                        Dashboard
-GET   /video/{cam_id}          MJPEG live stream
-GET   /events                  SSE event stream
+GET   /                          Dashboard
+GET   /video/{cam_id}            MJPEG live stream
+GET   /snapshot-live/{cam_id}    Single current JPEG (board tiles poll this)
+GET   /events                    SSE event stream
 
-GET   /api/settings            Read all settings
-POST  /api/settings            Update settings
+GET   /api/settings              Read settings        POST  /api/settings
+GET   /api/cameras               List cameras         POST  /api/cameras
+PUT   /api/cameras/{id}          Update camera        DELETE /api/cameras/{id}
 
-GET   /api/cameras             List cameras
-POST  /api/cameras             Add camera
-PUT   /api/cameras/{id}        Update camera
-DELETE /api/cameras/{id}       Remove camera
+GET   /api/zones                 Zones and their cameras
+GET   /api/situations            Current per-camera situation + zone big-pictures
+GET   /api/timeline?hours=N      Event timeline
+GET   /api/recent-feed?limit=N&camera_id=  Recent feed (optionally per camera)
 
-GET   /api/timeline?hours=N    Event timeline
-GET   /api/recent-feed?limit=N Recent feed items
-GET   /api/gallery             Snapshot gallery
+GET   /api/onvif-available       Is ONVIF discovery installed
+POST  /api/onvif-discover        Start network scan   GET /api/onvif-discover  (status)
+POST  /api/onvif-connect         Get a device's streams
+POST  /api/onvif-add-all         Add all channels of a device
 
-GET   /api/focus               Current focus camera
-POST  /api/focus               Set focus camera
-POST  /api/pause               Pause analysis
-POST  /api/resume              Resume analysis
-
-GET   /api/gpu                 GPU stats
-POST  /api/take-snapshot/{id}  Manual snapshot
-POST  /api/scan                Start camera scanner
-GET   /api/scan                Scanner status
-GET   /api/data-stats          Storage usage
-POST  /api/cleanup             Run data cleanup
-POST  /api/test-telegram       Send test notification
+POST  /api/focus                 Set focus camera     POST /api/pause  /api/resume
+GET   /api/gpu                   GPU stats
+POST  /api/test-telegram         Test Telegram        POST /api/test-ntfy   Test ntfy
+POST  /api/scan                  USB/network scanner   GET /api/scan  (status)
 ```
 
-## Architecture
+## Test footage
+
+The [UCF Crime Dataset](https://www.kaggle.com/datasets/odins0n/ucf-crime-dataset) (1,900 real CCTV clips, 13 categories) is the gold standard for trying Mevin against real scenarios. For quick tests, free clips are on [Pixabay](https://pixabay.com/videos/search/cctv/) and [Mixkit](https://mixkit.co/free-stock-video/cctv/).
+
+To split a long compilation into individual clips by scene:
+
+```bash
+python -m yt_dlp -f "worst[ext=mp4]" -o cctv.mp4 "VIDEO_URL"
+python tools/split_clips.py cctv.mp4
+```
+
+## Project layout
 
 ```
-mevin.py            Backend — FastAPI, VLM analyzer, camera threads, SSE
-dashboard.html      Frontend — single-file SPA (HTML + CSS + JS)
-monitor.db          SQLite database (auto-created at runtime)
-snapshots/          Saved alert frames (auto-created at runtime)
+mevin.py            Backend — FastAPI, cameras, MJPEG, SSE, API, SQLite, scene memory, zones
+mevin_worker.py     Analysis worker — separate process, GIL-isolated VLM pipeline
+dashboard.html      Frontend — single-file app (Board + Focus views)
+install.sh / .bat   One-command installers
+tools/split_clips.py  Scene-split a compilation into individual clips
+monitor.db          SQLite (auto-created)       snapshots/  Alert frames (auto-created)
 ```
-
-**Backend threads:** one thread per camera (frame capture), one analyzer thread (round-robin VLM inference), one GPU monitor thread, one observation writer thread (async DB writes), one maintenance thread (periodic cleanup).
-
-**Frontend performance:** single MJPEG stream (thumbnails use analysis snapshots instead of live streams), adaptive-framerate canvas rendering for per-camera lifelines, event-delegated timeline with throttled tooltips, parallel API initialization via `Promise.all`.
 
 ## Requirements
 
 - Python 3.10+
 - [Ollama](https://ollama.com) with a vision model pulled
 - A camera source (USB, RTSP, HTTP, or video file)
-- NVIDIA GPU recommended — CPU inference works but is significantly slower
+- NVIDIA GPU recommended — CPU inference works but is much slower
+- Optional: `onvif-zeep` + `wsdiscovery` for auto-discovery (`requirements-onvif.txt`)
 
 ## License
 
-[MIT](LICENSE)
+Personal Use Only. See [LICENSE](LICENSE). For commercial licensing, please contact the author.

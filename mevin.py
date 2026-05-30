@@ -11,6 +11,67 @@ from queue import Empty,Queue
 from typing import Optional
 import cv2,numpy as np,requests as req
 _NEG_RE=re.compile(r"\b(no|not|don't|didn't|doesn't|without|never|absence|lack|free of|no sign of|isn't|aren't|wasn't|weren't)\b",re.I)
+
+# ===============================================================================
+# ONVIF AUTO-DISCOVERY - find cameras & NVRs on the network, no URL typing
+# Optional: works if onvif-zeep + wsdiscovery are installed, degrades gracefully.
+# ===============================================================================
+_ONVIF_OK=False
+try:
+    from onvif import ONVIFCamera as _ONVIFCamera
+    from wsdiscovery.discovery import ThreadedWSDiscovery as _WSDiscovery
+    _ONVIF_OK=True
+except Exception:
+    pass
+
+def onvif_discover(timeout=4):
+    """Broadcast WS-Discovery, return ONVIF devices found on the LAN."""
+    if not _ONVIF_OK:return []
+    found=[]
+    try:
+        wsd=_WSDiscovery();wsd.start()
+        services=wsd.searchServices(timeout=timeout)
+        seen=set()
+        for svc in services:
+            for addr in svc.getXAddrs():
+                m=re.search(r"https?://([\d.]+)(?::(\d+))?",addr)
+                if not m:continue
+                ip=m.group(1);port=int(m.group(2) or 80)
+                if ip in seen:continue
+                seen.add(ip)
+                found.append({"ip":ip,"port":port,"xaddr":addr})
+        wsd.stop()
+    except Exception as e:print(f"[ONVIF] discovery error: {e}")
+    return found
+
+def onvif_streams(ip,port,user,password):
+    """Connect to an ONVIF device, return RTSP stream URLs for every channel/profile.
+    Returns list of {name, url}. Embeds credentials in the URL so OpenCV can open it."""
+    if not _ONVIF_OK:return{"ok":False,"error":"ONVIF not installed","streams":[]}
+    try:
+        cam=_ONVIFCamera(ip,port,user,password)
+        media=cam.create_media_service()
+        profiles=media.GetProfiles()
+        streams=[];seen=set()
+        for i,p in enumerate(profiles):
+            try:
+                req_=media.create_type("GetStreamUri")
+                req_.ProfileToken=p.token
+                req_.StreamSetup={"Stream":"RTP-Unicast","Transport":{"Protocol":"RTSP"}}
+                uri=media.GetStreamUri(req_).Uri
+            except Exception:
+                continue
+            # Inject credentials into the URL: rtsp://user:pass@ip:554/...
+            if user and "@" not in uri:
+                uri=re.sub(r"(rtsp://)",f"\\1{user}:{password}@",uri,count=1)
+            if uri in seen:continue
+            seen.add(uri)
+            nm=getattr(p,"Name",None) or f"Channel {i+1}"
+            streams.append({"name":str(nm),"url":uri})
+        return{"ok":True,"streams":streams}
+    except Exception as e:
+        return{"ok":False,"error":str(e),"streams":[]}
+
 import uvicorn
 from fastapi import FastAPI,Request
 from fastapi.responses import HTMLResponse,JSONResponse,StreamingResponse,Response
@@ -21,17 +82,18 @@ STREAM_FPS=15;THUMB_WIDTH=280;JPEG_QUALITY=65
 
 DEFAULTS={
     "model":"gemma3:4b","ollama_url":"http://localhost:11434",
-    "prompt":"People count, actions, danger. One sentence.",
-    "alert_keywords":json.dumps(["weapon","knife","gun","fight","fighting","attack","punch","kick","aggressive","threatening","suspicious","intruder","stranger","trespassing","break-in","forced","smash","fallen","falling","unconscious","injured","bleeding","fire","smoke","flame","running","shouting","screaming","panic","unattended","abandoned","mask","covered face","hoodie","loitering","hiding","crawling","climbing","vandalism","theft","stealing","robbery"]),
-    "max_tokens":"80","inference_size":"768","analysis_interval":"3",
+    "prompt":"Describe who is present and exactly what they are doing. Flag any suspicious or criminal behavior: concealing items, forcing entry, fighting, grabbing someone, fleeing, hiding, or casing the area. One sentence.",
+    "situational":"true","zone_synthesis":"true",
+    "alert_keywords":json.dumps(["weapon","knife","gun","armed","fight","fighting","attack","attacking","punch","punching","kick","kicking","assault","aggressive","threatening","threaten","struggle","struggling","intruder","stranger","trespassing","break-in","breaking","forced","forcing","pry","prying","smash","smashing","climbing","crawling","fallen","falling","collapsed","unconscious","injured","bleeding","fire","smoke","flame","explosion","running","fleeing","chasing","shouting","screaming","panic","crowd","crush","unattended","abandoned","mask","masked","covered face","hoodie","loitering","lurking","hiding","concealing","conceal","stealing","steal","theft","shoplifting","robbery","robbing","grab","grabbing","snatching","vandalism","destroying","cornered","following","stalking","drag","dragging"]),
+    "max_tokens":"50","inference_size":"768","analysis_interval":"2",
     "telegram_token":"","telegram_chat_id":"","telegram_on_alert":"true","telegram_on_all":"false",
     "telegram_quiet_start":"","telegram_quiet_end":"","telegram_min_interval":"30",
+    "ntfy_topic":"","ntfy_server":"https://ntfy.sh","ntfy_min_interval":"30",
     "motion_sensitivity":"0.3","motion_enabled":"true",
     "snapshot_on_every":"false","snapshot_quality":"90",
     "feed_show_stable":"true","feed_max_items":"200","setup_done":"false",
     "retain_days":"30","retain_max_obs":"5000","retain_max_snap_mb":"2000",
     "cleanup_interval_min":"60","thumb_retain_days":"7",
-    
 }
 
 app=FastAPI(title="Mevin",description="Real-time AI video analysis",docs_url="/docs")
@@ -84,13 +146,21 @@ def db_exec_script(sql):
         c=get_shared_db();c.executescript(sql)
 def init_db():
     db_exec_script("""
-        CREATE TABLE IF NOT EXISTS cameras(id TEXT PRIMARY KEY,name TEXT,source TEXT,enabled INTEGER DEFAULT 1,sort_order INTEGER DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS cameras(id TEXT PRIMARY KEY,name TEXT,source TEXT,enabled INTEGER DEFAULT 1,sort_order INTEGER DEFAULT 0,zone TEXT DEFAULT 'Main');
         CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT);
         CREATE TABLE IF NOT EXISTS observations(id TEXT PRIMARY KEY,camera_id TEXT,camera_name TEXT,timestamp TEXT,text TEXT,is_alert INTEGER DEFAULT 0,alert_keywords TEXT DEFAULT '[]',snapshot_path TEXT,thumb_b64 TEXT,pinned INTEGER DEFAULT 0);
         CREATE INDEX IF NOT EXISTS idx_obs_ts ON observations(timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_obs_cam ON observations(camera_id,timestamp DESC);
     """)
+    # Migrate: add zone column to existing camera tables
+    try:
+        cols=[r["name"] for r in db_exec("PRAGMA table_info(cameras)",fetch=True)]
+        if "zone" not in cols:
+            db_exec("ALTER TABLE cameras ADD COLUMN zone TEXT DEFAULT 'Main'")
+            print("[DB] Added zone column to cameras")
+    except Exception as e:print(f"[DB] migration: {e}")
     if db_exec("SELECT COUNT(*) FROM cameras",fetchone=True)[0]==0:
-        db_exec("INSERT INTO cameras VALUES('cam0','Camera 1','0',1,0)")
+        db_exec("INSERT INTO cameras(id,name,source,enabled,sort_order,zone)VALUES('cam0','Camera 1','0',1,0,'Main')")
 def get_setting(k):
     r=db_exec("SELECT value FROM settings WHERE key=?",(k,),fetchone=True)
     return r["value"] if r else DEFAULTS.get(k,"")
@@ -166,12 +236,40 @@ def send_telegram(text,photo_path=None):
         _last_tg=time.time()
     except Exception as e:print(f"[TG] {e}")
 
+_last_ntfy=0
+def send_ntfy(text,title="Mevin Alert",photo_path=None,priority="high",tags="rotating_light"):
+    """Send a push notification via ntfy.sh - dead simple, no bot setup.
+    User just installs the ntfy app and subscribes to their topic."""
+    global _last_ntfy
+    s=get_all_settings();topic=s.get("ntfy_topic","").strip()
+    if not topic:return
+    server=s.get("ntfy_server","https://ntfy.sh").strip().rstrip("/")
+    mi=sint(s.get("ntfy_min_interval","30"),30)
+    if time.time()-_last_ntfy<mi:return
+    url=f"{server}/{topic}"
+    try:
+        headers={"Title":title[:200],"Priority":priority,"Tags":tags}
+        if photo_path and os.path.isfile(photo_path):
+            # ntfy: attach image by PUT with the file body
+            with open(photo_path,"rb")as f:
+                req.put(url,data=f.read(),headers={**headers,"Filename":"snapshot.jpg","Message":text[:500]},timeout=15)
+        else:
+            req.post(url,data=text[:1000].encode("utf-8"),headers=headers,timeout=15)
+        _last_ntfy=time.time()
+    except Exception as e:print(f"[ntfy] {e}")
+
+def send_push(text,photo_path=None,is_alert=True):
+    """Fan out a notification to all configured channels (Telegram + ntfy)."""
+    send_telegram(text,photo_path)
+    send_ntfy(text,title=("Mevin Alert" if is_alert else "Mevin"),photo_path=photo_path,
+              priority=("high" if is_alert else "default"))
+
 # ===============================================================================
 # CAMERA FEED
 # ===============================================================================
 class CameraFeed:
     def __init__(s,cfg):
-        s.id=cfg["id"];s.name=cfg["name"];s.source=cfg["source"];s.frame=None;s.lock=threading.Lock();s.running=True;s.connected=False
+        s.id=cfg["id"];s.name=cfg["name"];s.source=cfg["source"];s.zone=cfg.get("zone","Main");s.frame=None;s.lock=threading.Lock();s.running=True;s.connected=False
         s.is_file=not str(s.source).isdigit() and not str(s.source).startswith(("rtsp://","http://","https://"))
         s.native_fps=25  # will be updated once connected
         threading.Thread(target=s._run,daemon=True).start()
@@ -199,13 +297,48 @@ class CameraFeed:
     def thumbnail(s,frame):
         h,w=frame.shape[:2];sc=THUMB_WIDTH/w;t=cv2.resize(frame,(THUMB_WIDTH,int(h*sc)),interpolation=cv2.INTER_AREA)
         _,jpg=cv2.imencode(".jpg",t,[cv2.IMWRITE_JPEG_QUALITY,70]);return base64.b64encode(jpg.tobytes()).decode()
-    def mjpeg_gen(s):
+    def _ensure_encoder(s):
+        """Start one shared background encoder per camera. All viewers read its output -
+        so N browser tabs / board tiles cost ONE encode, not N."""
+        if getattr(s,"_enc_thread",None) and s._enc_thread.is_alive():return
+        s._enc_lock=threading.Lock()
+        s._enc_full=None   # latest full-size JPEG bytes (focus view)
+        s._enc_small=None  # latest small JPEG bytes (board tiles)
+        s._enc_viewers=0
+        s._enc_last_view=time.time()
+        def loop():
+            while s.running:
+                # Idle down when nobody is watching (saves CPU/GIL)
+                idle=time.time()-s._enc_last_view>5
+                rate=0.5 if idle else 1.0/STREAM_FPS
+                f=s.get_frame()
+                if f is not None:
+                    h,w=f.shape[:2]
+                    # Full: capped width for focus view
+                    fw=MJPEG_WIDTH
+                    ff=f if w<=fw else cv2.resize(f,(fw,int(h*fw/w)),interpolation=cv2.INTER_AREA)
+                    ok1,j1=cv2.imencode(".jpg",ff,[cv2.IMWRITE_JPEG_QUALITY,JPEG_QUALITY])
+                    # Small: board tile thumbnail
+                    sw=384
+                    sf=f if w<=sw else cv2.resize(f,(sw,int(h*sw/w)),interpolation=cv2.INTER_AREA)
+                    ok2,j2=cv2.imencode(".jpg",sf,[cv2.IMWRITE_JPEG_QUALITY,55])
+                    with s._enc_lock:
+                        if ok1:s._enc_full=j1.tobytes()
+                        if ok2:s._enc_small=j2.tobytes()
+                time.sleep(rate)
+        s._enc_thread=threading.Thread(target=loop,daemon=True);s._enc_thread.start()
+    def latest_jpeg(s,small=False):
+        s._ensure_encoder();s._enc_last_view=time.time()
+        with s._enc_lock:return s._enc_small if small else s._enc_full
+    def mjpeg_gen(s,small=False):
+        s._ensure_encoder()
         interval=1.0/STREAM_FPS
         while s.running:
-            f=s.get_frame()
-            if f is None:b=np.zeros((360,640,3),dtype=np.uint8);_,jpg=cv2.imencode(".jpg",b)
-            else:_,jpg=cv2.imencode(".jpg",f,[cv2.IMWRITE_JPEG_QUALITY,JPEG_QUALITY])
-            yield b"--frame\r\nContent-Type:image/jpeg\r\n\r\n"+jpg.tobytes()+b"\r\n"
+            s._enc_last_view=time.time()
+            b=s.latest_jpeg(small)
+            if b is None:
+                blank=np.zeros((360,640,3),dtype=np.uint8);_,jpg=cv2.imencode(".jpg",blank);b=jpg.tobytes()
+            yield b"--frame\r\nContent-Type:image/jpeg\r\n\r\n"+b+b"\r\n"
             time.sleep(interval)
     def stop(s):s.running=False
 
@@ -228,13 +361,141 @@ class GPUMonitor:
 gpu_monitor=GPUMonitor()
 
 # ===============================================================================
+# SCENE MEMORY - per-camera situational understanding
+# ===============================================================================
+class SceneMemory:
+    """A living, situational understanding of one camera.
+    Tracks what's normal, what's been happening, and where danger is trending."""
+    def __init__(s):
+        s.baseline=""           # learned "normal" description for this camera
+        s.history=deque(maxlen=6)  # recent (time_str, caption, danger_score)
+        s.danger_trail=deque(maxlen=20)  # danger scores over time
+        s.calm_count=0          # consecutive calm frames (for baseline learning)
+        s.last_situation=""     # last situational summary
+
+    def build_context(s,base_prompt,model=""):
+        """Compose a situational prompt: baseline + recent narrative + the ask.
+        Small models (moondream) get a compact version - they lose focus on long prompts."""
+        small=any(m in model.lower() for m in["moondream","moon","1.6b","0.5b","tiny","nano"])
+        if small:
+            # Compact: one short line of baseline + the ask. No long history block.
+            if s.baseline:
+                return f"Normally: {s.baseline[:80]}. Now - {base_prompt} Note if anything changed or looks dangerous."
+            return base_prompt
+        # Full situational reasoning for capable models
+        parts=[]
+        if s.baseline:
+            parts.append(f"NORMAL for this camera: {s.baseline}")
+        if s.history:
+            recent="\n".join(f"  [{t}] {c}" for t,c,_ in s.history)
+            parts.append(f"WHAT JUST HAPPENED:\n{recent}")
+        if s.baseline or s.history:
+            parts.append(
+                base_prompt+
+                " Read the SITUATION, not just objects: what are people doing, what is their"
+                " intent, how does this differ from normal, and is it escalating, stable, or"
+                " calming. Call out crime or danger the moment you see it. One sentence."
+            )
+        else:
+            parts.append(base_prompt)
+        return "\n\n".join(parts)
+
+    def trend(s):
+        """Return danger trajectory: rising / falling / stable."""
+        if len(s.danger_trail)<4:return"stable"
+        recent=list(s.danger_trail)
+        first=sum(recent[:len(recent)//2])/max(1,len(recent)//2)
+        last=sum(recent[len(recent)//2:])/max(1,len(recent)-len(recent)//2)
+        if last>first+0.15:return"rising"
+        if last<first-0.15:return"falling"
+        return"stable"
+
+    def update(s,caption,danger,time_str):
+        s.history.append((time_str,caption,danger))
+        s.danger_trail.append(danger)
+        s.last_situation=caption
+        # Learn baseline from calm, stable moments
+        if danger<0.1:
+            s.calm_count+=1
+            # After a few calm frames, this is "normal" for the camera
+            if s.calm_count>=3 and(not s.baseline or s.calm_count%20==0):
+                s.baseline=caption
+        else:
+            s.calm_count=0
+
+# ===============================================================================
 # VLM ANALYZER
 # ===============================================================================
 class VLMAnalyzer:
     def __init__(s):
         s.cameras={};s.sse_queues=[];s.sse_lock=threading.Lock();s.running=True;s.paused=False
         s.prev_caption={};s.prev_gray={};s.no_change_count={};s.focus_cam=None;s.frames_per_cam=3;s.cur_frame=0
+        s.memory={}      # cam_id -> SceneMemory
+        s.situation={}   # cam_id -> {text, danger, trend, time, is_alert} - the current pinned read
+        s.zone_picture={}# zone -> {text, time, danger}
+        s.zone_ts={}     # zone -> last synth time
+        # Limit concurrent VLM calls so parallel workers don't thrash one GPU.
+        s.vlm_slots=threading.Semaphore(sint(os.environ.get("MEVIN_GPU_SLOTS","1"),1))
         threading.Thread(target=s._loop,daemon=True).start()
+        threading.Thread(target=s._zone_loop,daemon=True).start()
+    def scene_memory(s,cid):
+        if cid not in s.memory:s.memory[cid]=SceneMemory()
+        return s.memory[cid]
+
+    def _zone_loop(s):
+        """Big-picture engine: periodically synthesize each zone's cameras into one
+        overall understanding. Text-only (fast) - combines the live situation reads."""
+        while s.running:
+            time.sleep(6)
+            if s.paused:continue
+            if s._external_worker_alive():continue  # worker process handles zone synthesis
+            try:
+                st=get_all_settings()
+                if st.get("zone_synthesis","true")!="true":continue
+                # Group current situations by zone
+                zones={}
+                for cid,cam in list(s.cameras.items()):
+                    sit=s.situation.get(cid)
+                    if not sit:continue
+                    z=getattr(cam,"zone","Main") or "Main"
+                    zones.setdefault(z,[]).append((cam.name,sit))
+                for zone,cams in zones.items():
+                    # Only synthesize zones with 2+ cameras (a "circle" watching one area)
+                    if len(cams)<2:continue
+                    # Skip if nothing has changed recently in this zone
+                    newest=max(c[1].get("ts",0) for c in cams)
+                    if newest<=s.zone_ts.get(zone,0):continue
+                    s.zone_ts[zone]=newest
+                    s._synthesize_zone(zone,cams,st)
+            except Exception as e:print(f"[zone] {e}")
+
+    def _synthesize_zone(s,zone,cams,st):
+        """Ask the model to combine multiple camera reads into one big-picture narrative."""
+        reports="\n".join(f"  {name}: {sit.get('text','')}" for name,sit in cams)
+        max_danger=max((sit.get("danger",0) for _,sit in cams),default=0)
+        prompt=(f"These cameras all watch the same area ({zone}). Each reports what it sees:\n"
+                f"{reports}\n\n"
+                "In ONE sentence, describe the overall situation across this area. "
+                "If a person or event appears to move between cameras, say so. "
+                "Focus on the big picture, not each camera separately.")
+        model=st.get("model","gemma3:4b")
+        base_url=st.get("ollama_url",DEFAULTS["ollama_url"]).replace("/api/generate","").replace("/api/chat","").rstrip("/")
+        s.vlm_slots.acquire()
+        try:
+            r=req.post(f"{base_url}/v1/chat/completions",json={
+                "model":model,"messages":[{"role":"user","content":prompt}],
+                "stream":False,"max_tokens":60,"temperature":0.3,"keep_alive":"30m",
+            },timeout=60)
+            txt=""
+            if r.status_code<400:
+                j=r.json();txt=(j.get("choices",[{}])[0].get("message",{}).get("content","") or "").strip()
+            if txt:
+                s.zone_picture[zone]={"text":txt,"time":datetime.now().strftime("%H:%M:%S"),"danger":round(max_danger,2)}
+                s._broadcast({"type":"zone_summary","zone":zone,"text":txt,
+                    "time":datetime.now().strftime("%H:%M:%S"),"danger":round(max_danger,2),
+                    "cameras":[name for name,_ in cams]})
+        except Exception as e:print(f"[zone-synth] {e}")
+        finally:s.vlm_slots.release()
     def set_cameras(s,d):s.cameras=d
     def set_focus(s,cid):s.focus_cam=cid;s.cur_frame=0
     def _broadcast(s,data):
@@ -323,23 +584,27 @@ class VLMAnalyzer:
         if st.get("motion_enabled","true")=="true":
             nc=s.no_change_count.get(cam.id,0)
             if mp<ms and nc>0 and nc<5:s.no_change_count[cam.id]=nc+1;return
+        bp=st.get("prompt",DEFAULTS["prompt"])
+        mem=s.scene_memory(cam.id)
+        situational=st.get("situational","true")=="true"
+        model=st.get("model","gemma3:4b")
+        ctx=mem.build_context(bp,model) if situational else (bp if not s.prev_caption.get(cam.id,"") else f"{bp}\nPrevious: \"{s.prev_caption.get(cam.id,'')}\"")
+        caption=""
+        base_url=st.get("ollama_url",DEFAULTS["ollama_url"]).replace("/api/generate","").replace("/api/chat","").rstrip("/")
+        s.vlm_slots.acquire()  # wait for a free GPU slot (serializes inference on 1 GPU)
+        # Real-time: grab the FRESHEST frame now the GPU is ours, not the one from before the wait
+        fresh=cam.get_frame()
+        if fresh is not None:frame=fresh;mp=s._motion(cam.id,frame)
         ts=datetime.now();iid=f"{cam.id}_{int(ts.timestamp()*1000)}"
         thumb=cam.thumbnail(frame)
-        # Send highest quality image to VLM
         h,w=frame.shape[:2]
         isz=sint(st.get("inference_size","640"),640)
         sc=isz/max(h,w)
         sm=cv2.resize(frame,(int(w*sc),int(h*sc)),interpolation=cv2.INTER_AREA) if sc<1 else frame
         _,jpg=cv2.imencode(".jpg",sm,[cv2.IMWRITE_JPEG_QUALITY,92])
         b64=base64.b64encode(jpg.tobytes()).decode()
-        bp=st.get("prompt",DEFAULTS["prompt"])
-        prev=s.prev_caption.get(cam.id,"")
-        ctx=bp if not prev else f"{bp}\nPrevious: \"{prev}\""
-        print(f"[{cam.name}] motion={mp:.1f}% analyzing...")
+        print(f"[{cam.name}] motion={mp:.1f}% analyzing (live)...")
         s._broadcast({"type":"stream_start","camera_id":cam.id,"item_id":iid,"camera_name":cam.name,"time":ts.strftime("%H:%M:%S"),"thumb":thumb,"motion":round(mp,1)})
-        caption=""
-        model=st.get("model","gemma3:4b")
-        base_url=st.get("ollama_url",DEFAULTS["ollama_url"]).replace("/api/generate","").replace("/api/chat","").rstrip("/")
         try:
             r=req.post(f"{base_url}/v1/chat/completions",json={
                 "model":model,
@@ -348,11 +613,17 @@ class VLMAnalyzer:
                     {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
                 ]}],
                 "stream":True,"max_tokens":sint(st.get("max_tokens","150"),150),"temperature":0.2,
+                "keep_alive":"30m",
             },headers={"Content-Type":"application/json"},stream=True,timeout=120)
             if r.status_code>=400:
                 try:err=r.json().get("error",{});emsg=err.get("message","") if isinstance(err,dict) else str(err)
                 except:emsg=r.text[:300]
                 print(f"  [API] error ({r.status_code}): {emsg}")
+                # Model not installed -> surface a clear instruction in the feed
+                if "not found" in emsg.lower() or "no such model" in emsg.lower() or "try pulling" in emsg.lower():
+                    hint=f"Model '{model}' is not installed. Run: ollama pull {model}"
+                    s._broadcast({"type":"stream_token","item_id":iid,"text":hint})
+                    caption=hint;raise RuntimeError(hint)
                 r=req.post(f"{base_url}/api/chat",json={"model":model,"messages":[{"role":"user","content":ctx,"images":[b64]}],"stream":True,"keep_alive":"30m","options":{"temperature":0.2,"num_predict":sint(st.get("max_tokens","150"),150)}},stream=True,timeout=120)
             r.raise_for_status()
             thinking="";content_started=False
@@ -382,7 +653,9 @@ class VLMAnalyzer:
                         s._broadcast({"type":"stream_token","item_id":iid,"text":s._clean(caption,bp)})
                 except:continue
             if not caption.strip() and thinking.strip():caption=thinking
+        except RuntimeError:pass  # already surfaced a clean message (e.g. model not installed)
         except Exception as e:caption=f"Error: {e}"
+        finally:s.vlm_slots.release()  # free the GPU slot for the next camera
         caption=s._clean(caption.strip(),bp) or "(no response)"
         no_chg=caption.lower().strip().startswith("no change")
         if no_chg:s.no_change_count[cam.id]=s.no_change_count.get(cam.id,0)+1
@@ -402,6 +675,20 @@ class VLMAnalyzer:
                 pos=idx+1
             if found_positive:triggered.append(k)
         is_alert=len(triggered)>0
+        # Compute danger score for the situational trajectory
+        danger=0.02 if no_chg else 0.1
+        if is_alert:danger=0.5+min(len(triggered)*0.12,0.4)
+        danger+=min(mp/100,1)*0.1
+        danger=min(1.0,danger)
+        # Update the living scene memory
+        trend="stable"
+        if situational and not no_chg:
+            mem.update(caption,danger,ts.strftime("%H:%M:%S"))
+            trend=mem.trend()
+        # Store the current pinned situation for this camera (always-visible read + zone synthesis)
+        if not no_chg:
+            s.situation[cam.id]={"text":caption,"danger":round(danger,2),"trend":trend,
+                "time":ts.strftime("%H:%M:%S"),"is_alert":is_alert,"ts":time.time()}
         snap=""
         if is_alert or st.get("snapshot_on_every","false")=="true":
             dd=os.path.join(SNAPSHOT_DIR,ts.strftime("%Y-%m-%d"));os.makedirs(dd,exist_ok=True)
@@ -409,74 +696,92 @@ class VLMAnalyzer:
         if not no_chg or is_alert:save_observation({"id":iid,"camera_id":cam.id,"camera_name":cam.name,"timestamp":ts.isoformat(),"text":caption,"is_alert":int(is_alert),"alert_keywords":triggered,"snapshot_path":snap,"thumb_b64":thumb})
         s._broadcast({"type":"feed_item","item_id":iid,"camera_id":cam.id,"camera_name":cam.name,"time":ts.strftime("%H:%M:%S"),
             "text":caption,"thumb":thumb,"is_alert":is_alert,"alert_keywords":triggered,
-            "no_change":no_chg,"motion":round(mp,1),"snapshot":snap.replace("\\","/") if snap else""})
-        if is_alert and st.get("telegram_on_alert","true")=="true":threading.Thread(target=send_telegram,args=(f"ALERT {cam.name} {ts.strftime('%H:%M:%S')}\n{caption}\nKeywords: {', '.join(triggered)}",snap),daemon=True).start()
-        elif st.get("telegram_on_all","false")=="true" and not no_chg:threading.Thread(target=send_telegram,args=(f"{cam.name} {ts.strftime('%H:%M:%S')}\n{caption}",),daemon=True).start()
+            "no_change":no_chg,"motion":round(mp,1),"snapshot":snap.replace("\\","/") if snap else"","trend":trend,"danger":round(danger,2)})
+        notify_alert=is_alert and st.get("telegram_on_alert","true")=="true"
+        notify_all=st.get("telegram_on_all","false")=="true" and not no_chg
+        if notify_alert:threading.Thread(target=send_push,args=(f"ALERT {cam.name} {ts.strftime('%H:%M:%S')}\n{caption}\nKeywords: {', '.join(triggered)}",snap,True),daemon=True).start()
+        elif notify_all:threading.Thread(target=send_push,args=(f"{cam.name} {ts.strftime('%H:%M:%S')}\n{caption}",None,False),daemon=True).start()
     def _loop(s):
-        s.last_analyzed={}   # cam_id -> timestamp
-        s.analysis_times={}  # cam_id -> last duration in seconds
+        """Dispatcher: keeps one analysis worker per connected camera running in parallel.
+        Cameras no longer wait in line - each is analyzed on its own thread."""
+        s.last_analyzed={}      # cam_id -> timestamp
+        s.analysis_times={}     # cam_id -> last duration (s)
+        s.workers={}            # cam_id -> Thread
         s.load_warned=False
+        # GPU/status broadcaster runs independently so the UI stays live
+        threading.Thread(target=s._status_loop,daemon=True).start()
         while s.running:
-            # Paused - still broadcast GPU stats but skip analysis
-            if s.paused:
-                gpu=gpu_monitor.to_dict()
-                s._broadcast({"type":"gpu","data":gpu,"paused":True,"rotation":{"current":"Paused","total_cameras":len([c for c in s.cameras.values() if c.connected]),"cycle_time":0,"focus":s.focus_cam}})
-                time.sleep(1);continue
-
+            if s.paused:time.sleep(0.5);continue
             cams=list(s.cameras.values())
-            if not cams:time.sleep(1);continue
-
-            # Pick camera
+            # Focus mode: only the focused camera is analyzed
             if s.focus_cam and s.focus_cam in s.cameras:
-                cam=s.cameras[s.focus_cam]
+                active=[s.cameras[s.focus_cam]]
             else:
-                # Round-robin by least-recently-analyzed
-                connected=[c for c in cams if c.connected]
-                if not connected:time.sleep(2);continue
-                cam=min(connected,key=lambda c:s.last_analyzed.get(c.id,0))
+                active=[c for c in cams if c.connected]
+            # Spawn a worker for any active camera that doesn't have one
+            for cam in active:
+                w=s.workers.get(cam.id)
+                if w is None or not w.is_alive():
+                    t=threading.Thread(target=s._camera_worker,args=(cam.id,),daemon=True)
+                    s.workers[cam.id]=t;t.start()
+            time.sleep(0.5)
 
-            if cam.connected:
-                t0=time.time()
-                s._analyze(cam)
-                dur=time.time()-t0
-                s.last_analyzed[cam.id]=time.time()
-                s.analysis_times[cam.id]=dur
+    def _external_worker_alive(s):
+        """True if a separate analysis worker process posted a fresh heartbeat (<10s)."""
+        try:
+            hb=get_all_settings().get("_worker_heartbeat","")
+            if not hb:return False
+            return (time.time()-float(hb))<10
+        except:return False
 
-                # Broadcast GPU stats + camera rotation status
+    def _camera_worker(s,cam_id):
+        """Analyze one camera continuously, paced by the interval. One per camera.
+        Yields to an external worker process if one is alive (heartbeat fresh)."""
+        while s.running:
+            if s.paused:time.sleep(0.5);continue
+            cam=s.cameras.get(cam_id)
+            if cam is None or not cam.connected:return
+            if s.focus_cam and s.focus_cam!=cam_id:return
+            # If a separate worker process is handling analysis, stand down (auto-resume if it dies)
+            if s._external_worker_alive():time.sleep(2);continue
+            t0=time.time()
+            try:s._analyze(cam)
+            except Exception as e:print(f"[{cam_id}] analyze error: {e}")
+            s.analysis_times[cam_id]=time.time()-t0
+            s.last_analyzed[cam_id]=time.time()
+            # Cadence = max(interval, analysis time): back-to-back on fresh frames when
+            # GPU-bound, exact interval when the GPU has spare capacity.
+            st=get_all_settings();interval=max(0.2,sfloat(st.get("analysis_interval","3"),3))
+            time.sleep(max(0.0,interval-(time.time()-t0)))
+
+    def _status_loop(s):
+        """Broadcast GPU + rotation status on a steady cadence, independent of analysis."""
+        while s.running:
+            try:
                 gpu=gpu_monitor.to_dict()
+                cams=list(s.cameras.values())
                 n_cams=len([c for c in cams if c.connected])
-                cycle_time=sum(s.analysis_times.values()) if s.analysis_times else 0
-                status_data={
-                    "type":"gpu","data":gpu,
-                    "rotation":{
-                        "current":cam.name,
-                        "total_cameras":n_cams,
-                        "cycle_time":round(cycle_time,1),
-                        "per_camera":{cid:round(dt,1) for cid,dt in s.analysis_times.items()},
-                        "focus":s.focus_cam,
-                    }
-                }
-
-                # Load warnings
-                overloaded=False
-                warns=[]
+                if s.paused:
+                    s._broadcast({"type":"gpu","data":gpu,"paused":True,"rotation":{"current":"Paused","total_cameras":n_cams,"cycle_time":0,"focus":s.focus_cam}})
+                    time.sleep(1.5);continue
+                # With parallel workers, "cycle time" is the slowest single camera, not the sum
+                slowest=max(s.analysis_times.values()) if s.analysis_times else 0
+                status={"type":"gpu","data":gpu,"rotation":{
+                    "current":"Parallel" if n_cams>1 and not s.focus_cam else (s.cameras[s.focus_cam].name if s.focus_cam and s.focus_cam in s.cameras else (cams[0].name if cams else "-")),
+                    "total_cameras":n_cams,"cycle_time":round(slowest,1),
+                    "per_camera":{cid:round(dt,1) for cid,dt in s.analysis_times.items()},
+                    "focus":s.focus_cam}}
+                warns=[];overloaded=False
                 if gpu.get("available"):
                     if gpu["vram_pct"]>90:warns.append(f"VRAM at {gpu['vram_pct']}%");overloaded=True
                     if gpu["temp"]>82:warns.append(f"GPU temp {gpu['temp']}degC");overloaded=True
-                if n_cams>1 and cycle_time>n_cams*15:
-                    warns.append(f"Full cycle takes {cycle_time:.0f}s for {n_cams} cameras")
-                    overloaded=True
-                if dur>30:warns.append(f"{cam.name} took {dur:.0f}s");overloaded=True
-
+                if slowest>30:warns.append(f"Analysis taking {slowest:.0f}s/frame");overloaded=True
                 if overloaded and not s.load_warned:
-                    status_data["load_warning"]="; ".join(warns)
-                    print(f"[LOAD WARNING] {'; '.join(warns)}")
-                    s.load_warned=True
+                    status["load_warning"]="; ".join(warns);print(f"[LOAD] {'; '.join(warns)}");s.load_warned=True
                 elif not overloaded:s.load_warned=False
-
-                s._broadcast(status_data)
-            else:time.sleep(2)
-            st=get_all_settings();time.sleep(max(0.2,sfloat(st.get("analysis_interval","0.5"),0.5)))
+                s._broadcast(status)
+            except Exception as e:print(f"[status] {e}")
+            time.sleep(1.5)
     def subscribe(s):
         q=Queue(maxsize=20)  # small queue prevents memory buildup
         with s.sse_lock:s.sse_queues.append(q)
@@ -650,30 +955,61 @@ api=APIRouter(prefix="/api",dependencies=[Depends(check_auth)])
 async def index():return HTML
 
 @app.get("/video/{cam_id}")
-async def video_feed(cam_id:str):
+async def video_feed(cam_id:str,small:int=0):
     cam=feeds.get(cam_id)
     if not cam:return Response(status_code=404)
-    def resized():
-        # Stream at native FPS - only reduce resolution for bandwidth
-        n_cams=max(1,len(feeds))
-        width=MJPEG_WIDTH if n_cams<=2 else 480 if n_cams<=4 else 380
-        quality=JPEG_QUALITY if n_cams<=3 else 50 if n_cams<=6 else 40
-        fps=min(cam.native_fps,STREAM_FPS)  # cap at STREAM_FPS but never below native
-        interval=1.0/fps
-        last_frame_id=None
-        while cam.running:
-            f=cam.get_frame()
-            if f is None:
-                b=np.zeros((int(width*9/16),width,3),dtype=np.uint8)
-                _,jpg=cv2.imencode(".jpg",b)
-            else:
-                h,w=f.shape[:2]
-                if w>width:
-                    sc=width/w;f=cv2.resize(f,(width,int(h*sc)),interpolation=cv2.INTER_AREA)
-                _,jpg=cv2.imencode(".jpg",f,[cv2.IMWRITE_JPEG_QUALITY,quality])
-            yield b"--frame\r\nContent-Type:image/jpeg\r\n\r\n"+jpg.tobytes()+b"\r\n"
-            time.sleep(interval)
-    return StreamingResponse(resized(),media_type="multipart/x-mixed-replace;boundary=frame")
+    return StreamingResponse(cam.mjpeg_gen(small=bool(small)),media_type="multipart/x-mixed-replace;boundary=frame")
+
+@app.get("/snapshot-live/{cam_id}")
+async def snapshot_live(cam_id:str):
+    """Single current JPEG from the shared encoder. Board tiles poll this every ~1.5s
+    instead of holding a live stream - far less load, looks live, frees the GIL."""
+    cam=feeds.get(cam_id)
+    if not cam:return Response(status_code=404)
+    b=cam.latest_jpeg(small=True)
+    if b is None:
+        blank=np.zeros((216,384,3),dtype=np.uint8);_,jpg=cv2.imencode(".jpg",blank);b=jpg.tobytes()
+    return Response(content=b,media_type="image/jpeg",headers={"Cache-Control":"no-store"})
+
+# -- Internal endpoints for the analysis worker process ------------------------
+@app.get("/internal/frame-hq/{cam_id}")
+async def internal_frame_hq(cam_id:str):
+    """High-quality full frame for the worker to analyze. Worker fetches this instead
+    of opening its own camera connection, so cameras stay solely owned here."""
+    cam=feeds.get(cam_id)
+    if not cam:return Response(status_code=404)
+    f=cam.get_frame()
+    if f is None:return Response(status_code=503)
+    _,jpg=cv2.imencode(".jpg",f,[cv2.IMWRITE_JPEG_QUALITY,92])
+    return Response(content=jpg.tobytes(),media_type="image/jpeg",headers={"Cache-Control":"no-store"})
+
+@app.get("/internal/cameras")
+async def internal_cameras():
+    """Camera list + zones for the worker (id, name, zone, connected)."""
+    return [{"id":c.id,"name":c.name,"zone":getattr(c,"zone","Main"),"connected":c.connected}
+            for c in feeds.values()]
+
+@app.post("/internal/event")
+async def internal_event(req:Request):
+    """Worker posts analysis events here. We relay to SSE clients and update state."""
+    m=await req.json();t=m.get("type")
+    if t=="feed_item":
+        # Update live situation + zone state, persist observation
+        cid=m.get("camera_id")
+        if not m.get("no_change"):
+            analyzer.situation[cid]={"text":m.get("text",""),"danger":m.get("danger",0),
+                "trend":m.get("trend","stable"),"time":m.get("time",""),
+                "is_alert":m.get("is_alert",False),"ts":time.time()}
+        if m.get("_save"):
+            save_observation({"id":m["item_id"],"camera_id":cid,"camera_name":m.get("camera_name",""),
+                "timestamp":m.get("iso",datetime.now().isoformat()),"text":m.get("text",""),
+                "is_alert":int(bool(m.get("is_alert"))),"alert_keywords":m.get("alert_keywords",[]),
+                "snapshot_path":m.get("snapshot",""),"thumb_b64":m.get("thumb","")})
+    elif t=="zone_summary":
+        analyzer.zone_picture[m["zone"]]={"text":m.get("text",""),"time":m.get("time",""),"danger":m.get("danger",0)}
+    # Relay to all dashboard SSE clients
+    analyzer._broadcast(m)
+    return {"ok":True}
 
 @app.get("/events")
 async def sse_events():
@@ -708,17 +1044,17 @@ async def get_cameras():return get_cameras_from_db()
 
 @api.post("/cameras")
 async def add_camera(req:Request):
-    d=await req.json();cid=f"cam{int(time.time()*1000)}"
-    db_exec("INSERT INTO cameras(id,name,source)VALUES(?,?,?)",(cid,d["name"],d["source"]))
-    add_single_camera({"id":cid,"name":d["name"],"source":d["source"]})
+    d=await req.json();cid=f"cam{int(time.time()*1000)}";zone=d.get("zone","Main")or"Main"
+    db_exec("INSERT INTO cameras(id,name,source,zone)VALUES(?,?,?,?)",(cid,d["name"],d["source"],zone))
+    add_single_camera({"id":cid,"name":d["name"],"source":d["source"],"zone":zone})
     return{"ok":True,"id":cid}
 
 @api.put("/cameras/{cid}")
 async def update_camera(cid:str,req:Request):
-    d=await req.json()
-    db_exec("UPDATE cameras SET name=?,source=? WHERE id=?",(d["name"],d["source"],cid))
+    d=await req.json();zone=d.get("zone","Main")or"Main"
+    db_exec("UPDATE cameras SET name=?,source=?,zone=? WHERE id=?",(d["name"],d["source"],zone,cid))
     remove_single_camera(cid)
-    add_single_camera({"id":cid,"name":d["name"],"source":d["source"]})
+    add_single_camera({"id":cid,"name":d["name"],"source":d["source"],"zone":zone})
     return{"ok":True}
 
 @api.delete("/cameras/{cid}")
@@ -753,18 +1089,20 @@ async def get_focus():return{"focus":analyzer.focus_cam}
 
 @api.post("/focus")
 async def set_focus(req:Request):
-    d=await req.json();analyzer.set_focus(d.get("camera_id"));return{"ok":True}
+    d=await req.json();cid=d.get("camera_id");analyzer.set_focus(cid)
+    set_setting("focus_cam",cid or "")  # so the worker process sees it
+    return{"ok":True}
 
 @api.get("/analysis-status")
 async def analysis_status():return{"paused":analyzer.paused}
 
 @api.post("/pause")
 async def pause_analysis():
-    analyzer.paused=True;print("[Analysis] Paused");return{"ok":True,"paused":True}
+    analyzer.paused=True;set_setting("paused","true");print("[Analysis] Paused");return{"ok":True,"paused":True}
 
 @api.post("/resume")
 async def resume_analysis():
-    analyzer.paused=False;print("[Analysis] Resumed");return{"ok":True,"paused":False}
+    analyzer.paused=False;set_setting("paused","false");print("[Analysis] Resumed");return{"ok":True,"paused":False}
 
 # -- GPU -----------------------------------------------------------------------
 @api.get("/gpu")
@@ -788,11 +1126,16 @@ async def clear_obs():
 
 # -- Feed Cache ----------------------------------------------------------------
 @api.get("/recent-feed")
-async def recent_feed(limit:int=50):
-    """Load recent observations from DB for page reload."""
-    rows=db_exec(
-        "SELECT id,camera_id,camera_name,timestamp,text,is_alert,alert_keywords,thumb_b64,pinned "
-        "FROM observations ORDER BY timestamp DESC LIMIT ?",(limit,),fetch=True)
+async def recent_feed(limit:int=50,camera_id:str=""):
+    """Load recent observations from DB. Optionally filter to one camera."""
+    if camera_id:
+        rows=db_exec(
+            "SELECT id,camera_id,camera_name,timestamp,text,is_alert,alert_keywords,thumb_b64,pinned "
+            "FROM observations WHERE camera_id=? ORDER BY timestamp DESC LIMIT ?",(camera_id,limit),fetch=True)
+    else:
+        rows=db_exec(
+            "SELECT id,camera_id,camera_name,timestamp,text,is_alert,alert_keywords,thumb_b64,pinned "
+            "FROM observations ORDER BY timestamp DESC LIMIT ?",(limit,),fetch=True)
     items=[]
     for r in rows:
         ts=r["timestamp"]
@@ -803,6 +1146,18 @@ async def recent_feed(limit:int=50):
             "alert_keywords":json.loads(r["alert_keywords"]or"[]"),
             "thumb":r["thumb_b64"]or"","pinned":r["pinned"]})
     return items
+
+@api.get("/situations")
+async def situations():
+    """Current pinned situation for every camera + zone big-pictures. For page load."""
+    return {"cameras":analyzer.situation,"zones":analyzer.zone_picture}
+
+@api.get("/zones")
+async def zones():
+    """List zones and which cameras belong to each."""
+    cams=get_cameras_from_db();z={}
+    for c in cams:z.setdefault(c.get("zone","Main")or"Main",[]).append({"id":c["id"],"name":c["name"]})
+    return z
 
 # -- Timeline ------------------------------------------------------------------
 @api.get("/timeline")
@@ -832,6 +1187,67 @@ async def test_telegram():
         r=req.post(f"https://api.telegram.org/bot{token}/sendMessage",json={"chat_id":cid,"text":"Mevin connected."},timeout=10)
         return{"ok":r.status_code==200}
     except Exception as e:return{"ok":False,"error":str(e)}
+
+@api.post("/test-ntfy")
+async def test_ntfy():
+    s=get_all_settings();topic=s.get("ntfy_topic","").strip()
+    if not topic:return{"ok":False,"error":"Enter an ntfy topic first"}
+    server=s.get("ntfy_server","https://ntfy.sh").strip().rstrip("/")
+    try:
+        r=req.post(f"{server}/{topic}",data=b"Mevin connected. You'll get alerts here.",
+            headers={"Title":"Mevin","Tags":"white_check_mark"},timeout=10)
+        return{"ok":r.status_code<400,"topic":topic,"server":server}
+    except Exception as e:return{"ok":False,"error":str(e)}
+
+# -- ONVIF auto-discovery ------------------------------------------------------
+_onvif={"status":"idle","devices":[]}
+_onvif_lock=threading.Lock()
+
+@api.get("/onvif-available")
+async def onvif_available():
+    return{"available":_ONVIF_OK}
+
+@api.post("/onvif-discover")
+async def onvif_discover_start():
+    if not _ONVIF_OK:
+        return{"ok":False,"error":"ONVIF support not installed. Run: pip install onvif-zeep wsdiscovery"}
+    def do():
+        global _onvif
+        with _onvif_lock:_onvif={"status":"discovering","devices":[]}
+        devs=onvif_discover(timeout=5)
+        with _onvif_lock:_onvif={"status":"done","devices":devs}
+    threading.Thread(target=do,daemon=True).start()
+    return{"ok":True}
+
+@api.get("/onvif-discover")
+async def onvif_discover_status():
+    with _onvif_lock:return dict(_onvif)
+
+@api.post("/onvif-connect")
+async def onvif_connect(req_:Request):
+    """Given a device IP/port + credentials, return its RTSP streams (channels)."""
+    d=await req_.json()
+    res=onvif_streams(d.get("ip",""),sint(str(d.get("port",80)),80),
+                      d.get("user","admin"),d.get("password",""))
+    return res
+
+@api.post("/onvif-add-all")
+async def onvif_add_all(req_:Request):
+    """Add every channel from an ONVIF device as cameras in one click."""
+    d=await req_.json()
+    res=onvif_streams(d.get("ip",""),sint(str(d.get("port",80)),80),
+                      d.get("user","admin"),d.get("password",""))
+    if not res.get("ok"):return res
+    zone=d.get("zone","") or d.get("ip","Cameras")
+    added=[]
+    for st_ in res["streams"]:
+        cid=f"cam{int(time.time()*1000)}{len(added)}"
+        nm=st_["name"] if len(res["streams"])>1 else (d.get("name") or st_["name"])
+        db_exec("INSERT INTO cameras(id,name,source,zone)VALUES(?,?,?,?)",(cid,nm,st_["url"],zone))
+        add_single_camera({"id":cid,"name":nm,"source":st_["url"],"zone":zone})
+        added.append({"id":cid,"name":nm})
+        time.sleep(0.001)
+    return{"ok":True,"added":added,"zone":zone}
 
 # -- Scanner -------------------------------------------------------------------
 @api.post("/scan")
@@ -870,14 +1286,53 @@ app.include_router(api)
 async def shutdown():
     analyzer.stop();gpu_monitor.stop();maintenance.stop()
     for c in feeds.values():c.stop()
+    _stop_worker()
+
+# -- Analysis worker subprocess (process isolation) ----------------------------
+_worker_proc=None
+def _start_worker():
+    """Launch the separate analysis worker process for GIL isolation.
+    Set MEVIN_WORKERS=0 to disable and analyze in-process instead."""
+    global _worker_proc
+    if os.environ.get("MEVIN_WORKERS","1")=="0":
+        print("  Workers:     in-process (MEVIN_WORKERS=0)")
+        return
+    wpath=os.path.join(os.path.dirname(os.path.abspath(__file__)),"mevin_worker.py")
+    if not os.path.exists(wpath):
+        print("  Workers:     in-process (mevin_worker.py not found)")
+        return
+    try:
+        import sys
+        env=dict(os.environ,MEVIN_API=f"http://127.0.0.1:{PORT}")
+        _worker_proc=subprocess.Popen([sys.executable,wpath],env=env)
+        print(f"  Workers:     separate process (PID {_worker_proc.pid}) - GIL isolated")
+    except Exception as e:
+        print(f"  Workers:     in-process (worker launch failed: {e})")
+
+def _stop_worker():
+    global _worker_proc
+    if _worker_proc:
+        try:_worker_proc.terminate()
+        except:pass
+        _worker_proc=None
 
 if __name__=="__main__":
     s=get_all_settings();cams=get_cameras_from_db()
-    print("="*60+"\n  MEVIN (FastAPI)\n"+"="*60)
-    print(f"  Model:     {s.get('model')}\n  Cameras:   {len(cams)}")
+    # Clear any stale worker heartbeat + transient state from a previous run
+    try:
+        set_setting("_worker_heartbeat","");set_setting("paused","false")
+    except:pass
+    print("="*60+"\n  MEVIN - real-time situational video analysis\n"+"="*60)
+    print(f"  Model:       {s.get('model')}  ({s.get('max_tokens')} tokens)")
+    print(f"  Mode:        {'Situational (reads intent + trend)' if s.get('situational','true')=='true' else 'Snapshot'}")
+    print(f"  Analysis:    parallel per-camera, {s.get('analysis_interval')}s interval")
+    print(f"  Cameras:     {len(cams)}")
     for c in cams:print(f"    - {c['name']} ({c['source']})")
-    print(f"  Dashboard: http://localhost:{PORT}")
-    print(f"  API Docs:  http://localhost:{PORT}/docs")
-    print(f"  Retention: {s.get('retain_days')}d / max {s.get('retain_max_obs')} obs / {s.get('retain_max_snap_mb')}MB snaps")
+    _start_worker()
+    print(f"  Dashboard:   http://localhost:{PORT}")
+    print(f"  API Docs:    http://localhost:{PORT}/docs")
     print("="*60+"\n")
-    uvicorn.run(app,host=HOST,port=PORT,log_level="warning")
+    try:
+        uvicorn.run(app,host=HOST,port=PORT,log_level="warning")
+    finally:
+        _stop_worker()
