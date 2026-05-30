@@ -1,12 +1,7 @@
 
-<div align="center">
-NEW UPDATE
-NEW UPDATE
-NEW UPDATE
-NEW UPDATE
 Mevin Update — 2026-05-30
 
-    Situational understanding — each camera learns what's "normal," remembers what happened, and detects whether things are escalating or calming.
+    Situational understanding — each camera learns what's "normal," remembers what happened, and detects whether things are      escalating or calming.
     Board view — a card per camera: video, danger graph, current situation, its own feed.
     Scene matching — cameras in the same zone are synthesized into one picture ("Big Picture").
     Process isolation — analysis runs in a separate process, so the dashboard never freezes. With automatic fallback.
@@ -15,6 +10,8 @@ Mevin Update — 2026-05-30
     One-command install — install.bat / install.sh.
     Auto camera discovery (ONVIF) — a Discover button finds cameras/NVRs and adds them all in one click.
     Phone alerts (ntfy) — alongside Telegram, no account needed.
+<div align="center">
+
     
     
 # Mevin
