@@ -1,10 +1,12 @@
+
+
 <div align="center">
 
 # Mevin
 
 **Real-time situational video understanding — private, local, open-source.**
 
-Mevin doesn't just describe what's on camera. It reads the *situation* — who's there, what they're doing, what their intent looks like, and whether things are escalating or calming — in real time, on your own hardware.
+Mevin doesn't just describe what's on camera. It understands the *situation* — who's there, what they're doing, what their intent looks like, and whether things are escalating or calming — in real time, on your own hardware.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -31,7 +33,7 @@ Most camera software detects *objects* — "person, car, bag." Mevin reads *situ
 Everything stays on your machine. The only network calls are to your own Ollama instance and, optionally, a push service for phone alerts.
 
 <img width="2543" height="1353" alt="Board view" src="https://github.com/user-attachments/assets/bdeec7c6-88db-4151-9eea-83200c2f2763" />
-<img width="452" height="240" alt="0530 (1)(1)" src="https://github.com/user-attachments/assets/0c9dcfca-33e4-4a34-9cd7-3d7be58ef624" />
+<img width="720" height="382" alt="0530 (1)(2)(3)" src="https://github.com/user-attachments/assets/3427052d-8cb2-4fa7-b85a-17201a4c3484" />
 
 
 
@@ -48,7 +50,7 @@ Everything stays on your machine. The only network calls are to your own Ollama 
 
 # Windows — double-click install.bat
 ```
-
+  
 **Manual:**
 
 ```bash
