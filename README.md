@@ -31,7 +31,11 @@ Most camera software detects *objects* — "person, car, bag." Mevin reads *situ
 Everything stays on your machine. The only network calls are to your own Ollama instance and, optionally, a push service for phone alerts.
 
 <img width="2543" height="1353" alt="Board view" src="https://github.com/user-attachments/assets/bdeec7c6-88db-4151-9eea-83200c2f2763" />
-<img width="2559" height="1358" alt="Focus view" src="https://github.com/user-attachments/assets/8ae147fe-235c-48dc-b81f-f466475daec0" />
+<img width="452" height="240" alt="0530 (1)(1)" src="https://github.com/user-attachments/assets/0c9dcfca-33e4-4a34-9cd7-3d7be58ef624" />
+
+
+
+
 <img width="1759" height="1307" alt="Settings" src="https://github.com/user-attachments/assets/25ce3220-0d86-4c13-a7e8-327082d90cbd" />
 
 ## Quick start
