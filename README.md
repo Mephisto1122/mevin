@@ -1,15 +1,3 @@
-
-Mevin Update — 2026-05-30
-
-    Situational understanding — each camera learns what's "normal," remembers what happened, and detects whether things are      escalating or calming.
-    Board view — a card per camera: video, danger graph, current situation, its own feed.
-    Scene matching — cameras in the same zone are synthesized into one picture ("Big Picture").
-    Process isolation — analysis runs in a separate process, so the dashboard never freezes. With automatic fallback.
-    Real-time fix — always analyzes the freshest frame, never a stale one from the queue.
-    Shared MJPEG encoder — ~20× less load, no lag during analysis.
-    One-command install — install.bat / install.sh.
-    Auto camera discovery (ONVIF) — a Discover button finds cameras/NVRs and adds them all in one click.
-    Phone alerts (ntfy) — alongside Telegram, no account needed.
 <div align="center">
 
     
@@ -44,6 +32,21 @@ Most camera software detects *objects* — "person, car, bag." Mevin reads *situ
 
 Everything stays on your machine. The only network calls are to your own Ollama instance and, optionally, a push service for phone alerts.
 
+## What's new
+
+**2026-11 — reliability & security update**
+
+- **Phone alerts now work in the default mode.** With the separate analysis worker (the default), alerts were analysed and shown on the dashboard but never pushed to Telegram/ntfy. Fixed.
+- **Smarter alert keywords** — whole-word matching with plurals/past tense, so *"unarmed guard"* no longer fires `armed`, *"fireplace"* no longer fires `fire`, and a negation in another clause (*"nobody inside, but a man is fighting"*) no longer hides a real alert.
+- **`MEVIN_TOKEN` actually works end-to-end** — the dashboard asks for the token once, and live video, snapshots and the event stream are protected too (they were public before).
+- **Security fixes** — snapshot path traversal closed; worker-only `/internal/*` endpoints locked to this machine with a per-run secret; Telegram alerts no longer dropped when the model writes `<` or `&`; ONVIF passwords with `@ : / #` now work.
+- **Snapshot size cap fixed** — cleanup only ever saw one file per day folder, so the storage limit wasn't enforced.
+- **Docker fixed** — the image failed to build on current Debian, didn't include the worker, and couldn't reach the Ollama container. Data now lives in `./data`, plus a health check.
+- **Installer** — `install.sh` uses a local `.venv`, so it works on Homebrew Python and recent Ubuntu.
+- **Shared core + tests** — the analysis logic used by the web process and the worker now lives in one module (`mevin_core.py`), covered by tests that run in GitHub Actions.
+
+**2026-05-30** — situational understanding, Board view, zone "Big Picture", process isolation, freshest-frame analysis, shared MJPEG encoder, one-command install, ONVIF discovery, ntfy alerts.
+
 <img width="2543" height="1353" alt="Board view" src="https://github.com/user-attachments/assets/bdeec7c6-88db-4151-9eea-83200c2f2763" />
 <img width="720" height="382" alt="0530 (1)(2)(3)" src="https://github.com/user-attachments/assets/3427052d-8cb2-4fa7-b85a-17201a4c3484" />
 
@@ -72,6 +75,15 @@ python mevin.py
 ```
 
 Then open **http://localhost:5555**. A setup wizard walks you through your first camera.
+
+**Docker** (NVIDIA GPU + [Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/)):
+
+```bash
+docker compose up -d
+docker compose exec ollama ollama pull gemma3:4b
+```
+
+Database and snapshots are stored in `./data`. ONVIF discovery needs `network_mode: host` (see `docker-compose.yml`).
 
 ```
 ============================================================
@@ -114,6 +126,7 @@ pip install -r requirements-onvif.txt
 
 - **Same WiFi:** open `http://<PC-IP>:5555` on your phone — the dashboard is mobile-responsive.
 - **Anywhere:** install [Tailscale](https://tailscale.com) (free) on the PC and phone — reach Mevin remotely with no port-forwarding.
+- **Protect it:** set `MEVIN_TOKEN` before starting (e.g. `MEVIN_TOKEN=some-long-secret python mevin.py`). The dashboard asks for it once per browser; you can also open `http://<PC-IP>:5555/?token=...`. Without a token, anyone on your network can view your cameras.
 - **Push alerts:** in Settings, set an **ntfy** topic (install the [ntfy app](https://ntfy.sh), subscribe, done — no account) or add a **Telegram** bot token. Alerts fan out to both.
 
 ## How it works
@@ -219,14 +232,18 @@ All settings live in SQLite and are editable from the dashboard.
 |----------|-------------|
 | `MEVIN_WORKERS` | `1` (default) runs the isolated analysis process; `0` analyzes in-process |
 | `MEVIN_GPU_SLOTS` | Concurrent VLM inferences (default `1`; raise for multi-GPU / big cards) |
-| `MEVIN_TOKEN` | Set to require an auth token on all API requests |
+| `MEVIN_TOKEN` | Require this token for the API, live video, snapshots and events |
+| `MEVIN_OLLAMA_URL` | Default Ollama URL for a fresh install (default `http://localhost:11434`) |
+| `MEVIN_PORT` / `MEVIN_HOST` | Web server port (`5555`) and bind address (`0.0.0.0`; use `127.0.0.1` for this PC only) |
+| `MEVIN_DB` / `MEVIN_SNAPSHOTS` | Database file and snapshot folder locations |
 
 ## API
 
-Interactive docs at `/docs`. Selected endpoints:
+Interactive docs at `/docs`. When `MEVIN_TOKEN` is set, send it as `Authorization: Bearer <token>`, `?token=<token>`, or the `mevin_token` cookie. Selected endpoints:
 
 ```
 GET   /                          Dashboard
+GET   /healthz                   Liveness check (public)
 GET   /video/{cam_id}            MJPEG live stream
 GET   /snapshot-live/{cam_id}    Single current JPEG (board tiles poll this)
 GET   /events                    SSE event stream
@@ -265,8 +282,10 @@ python tools/split_clips.py cctv.mp4
 ## Project layout
 
 ```
-mevin.py            Backend — FastAPI, cameras, MJPEG, SSE, API, SQLite, scene memory, zones
+mevin.py            Backend — FastAPI, cameras, MJPEG, SSE, API, SQLite, alerts, zones
 mevin_worker.py     Analysis worker — separate process, GIL-isolated VLM pipeline
+mevin_core.py       Shared logic — caption cleanup, scene memory, keyword matching, danger score
+tests/              pytest suite (run: pip install pytest httpx && pytest)
 dashboard.html      Frontend — single-file app (Board + Focus views)
 install.sh / .bat   One-command installers
 tools/split_clips.py  Scene-split a compilation into individual clips

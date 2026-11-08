@@ -383,6 +383,27 @@ button,input,textarea{font-family:inherit}button{border:0;background:none;color:
 <div class="to" id="toast"></div>
 
 <script>
+// Auth: when the server runs with MEVIN_TOKEN, remember the token (from ?token= or a prompt),
+// send it on every API call, and set a same-site cookie so live video, snapshots and the
+// event stream (which can't send headers) are authorised too.
+(function(){
+  var KEY='mevin_token';
+  function getTok(){try{return localStorage.getItem(KEY)||''}catch(e){return''}}
+  function setTok(t){try{localStorage.setItem(KEY,t)}catch(e){}
+    document.cookie=KEY+'='+encodeURIComponent(t)+';path=/;SameSite=Strict'+(location.protocol==='https:'?';Secure':'')}
+  var qp=null;try{qp=new URLSearchParams(location.search).get('token')}catch(e){}
+  if(qp){setTok(qp);try{history.replaceState(null,'',location.pathname)}catch(e){}}
+  else if(getTok())setTok(getTok());
+  var _fetch=window.fetch.bind(window),asking=false;
+  window.fetch=async function(u,o){
+    o=o||{};var t=getTok();
+    if(t){var h=new Headers(o.headers||{});if(!h.has('Authorization'))h.set('Authorization','Bearer '+t);o.headers=h}
+    var r=await _fetch(u,o);
+    if(r.status===401&&!asking){asking=true;
+      var n=prompt('This Mevin is protected. Enter the access token (MEVIN_TOKEN):');
+      asking=false;if(n&&n.trim()){setTok(n.trim());location.reload()}}
+    return r};
+})();
 var tot=0,ac=0,showSt=true,focus=null,isPaused=false,mainCamId=null;
 var fS=document.getElementById('fS'),eS=document.getElementById('eS');
 var evData={};  // store event data for detail view
@@ -400,7 +421,7 @@ function openEv(id){
   if(d.no_change)badges+='<span style="background:#1d212a;color:var(--soft)">Stable</span>';
   else if(!d.is_alert)badges+='<span style="background:rgba(10,132,255,.18);color:#bddfff">Changed</span>';
   document.getElementById('evBadges').innerHTML=badges;
-  document.getElementById('evKws').innerHTML=(d.alert_keywords||[]).map(function(k){return'<span>'+k+'</span>'}).join('');
+  document.getElementById('evKws').innerHTML=(d.alert_keywords||[]).map(function(k){return'<span>'+esc(k)+'</span>'}).join('');
   document.getElementById('evText').innerHTML=fmt(d.text||'');
   ov.classList.add('op');
 }
@@ -783,9 +804,9 @@ async function onConnect(){
   var user=document.getElementById('onUser').value.trim(),pass=document.getElementById('onPass').value,zone=document.getElementById('onZone').value.trim()||'Main';
   var r=await(await fetch('/api/onvif-connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:onSelected.ip,port:onSelected.port,user:user,password:pass})})).json();
   btn.disabled=false;btn.textContent='Get cameras';
-  if(!r.ok){document.getElementById('onStreams').innerHTML='<div style="padding:10px;color:#ff8a8a;font-size:12px">'+(r.error||'Connection failed')+'. Check the password.</div>';return}
+  if(!r.ok){document.getElementById('onStreams').innerHTML='<div style="padding:10px;color:#ff8a8a;font-size:12px">'+esc(r.error||'Connection failed')+'. Check the password.</div>';return}
   if(!r.streams.length){document.getElementById('onStreams').innerHTML='<div style="padding:10px;color:var(--soft);font-size:12px">No streams found on this device.</div>';return}
-  document.getElementById('onStreams').innerHTML='<div style="font-size:12px;color:var(--soft);margin-bottom:6px">'+r.streams.length+' channel'+(r.streams.length>1?'s':'')+' found:</div>'+r.streams.map(function(s){return'<div class="sci"><span class="sct rtsp">RTSP</span><span class="scn">'+s.name+'</span></div>'}).join('')+'<button class="bt bb" style="width:100%;margin-top:10px" onclick="onAddAll()">Add all '+r.streams.length+' camera'+(r.streams.length>1?'s':'')+'</button>';
+  document.getElementById('onStreams').innerHTML='<div style="font-size:12px;color:var(--soft);margin-bottom:6px">'+r.streams.length+' channel'+(r.streams.length>1?'s':'')+' found:</div>'+r.streams.map(function(s){return'<div class="sci"><span class="sct rtsp">RTSP</span><span class="scn">'+esc(s.name)+'</span></div>'}).join('')+'<button class="bt bb" style="width:100%;margin-top:10px" onclick="onAddAll()">Add all '+r.streams.length+' camera'+(r.streams.length>1?'s':'')+'</button>';
 }
 async function onAddAll(){
   if(!onSelected)return;
