@@ -11,16 +11,20 @@ State (cameras, settings, pause, focus) is read from the shared SQLite DB.
 A heartbeat is written every few seconds; if this process dies, the web
 process detects the stale heartbeat and resumes analysis in-thread.
 """
-import base64,json,os,re,sqlite3,threading,time
-from collections import deque
+import base64,json,os,sqlite3,sys,threading,time
 from datetime import datetime
 import cv2,numpy as np,requests as req
+sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
+from mevin_core import (SceneMemory,clean,match_keywords,danger_score,is_thinking_start,
+    ollama_base,DEFAULT_OLLAMA_URL)
 
 API=os.environ.get("MEVIN_API","http://127.0.0.1:5555")
 DB_PATH=os.environ.get("MEVIN_DB","monitor.db")
-GPU_SLOTS=int(os.environ.get("MEVIN_GPU_SLOTS","1"))
-
-_NEG_RE=re.compile(r"\b(no|not|don't|didn't|doesn't|without|never|absence|lack|free of|no sign of|isn't|aren't|wasn't|weren't)\b",re.I)
+SNAPSHOT_DIR=os.environ.get("MEVIN_SNAPSHOTS","snapshots")
+GPU_SLOTS=max(1,int(os.environ.get("MEVIN_GPU_SLOTS","1") or 1))
+# Shared secret for the web process's /internal/* endpoints (set by mevin.py at launch)
+_SESSION=req.Session()
+_SESSION.headers["X-Mevin-Internal"]=os.environ.get("MEVIN_INTERNAL_KEY","")
 
 # ---- DB access (read settings, write observations + heartbeat) ----------------
 _conn=sqlite3.connect(DB_PATH,check_same_thread=False,timeout=30)
@@ -46,100 +50,24 @@ def sfloat(v,d=0.0):
     try:return float(v)
     except:return d
 
-# ---- text cleanup (mirrors mevin.py _clean) -----------------------------------
-_PREAMBLES=["An image showing ","An image of ","The image shows ","The scene shows ",
-    "In this image, ","In this scene, ","I can see ","Here is ","Here's ",
-    "This appears ","This image shows ","Based on the image, ","The camera shows ",
-    "The image depicts ","In the image, ","Content: ","Analyze the Image: ",
-    "A wide shot of ","A shot of ","An analysis of the scene","An analysis of ",
-    "Analysis: ","Here is my analysis","Here is the analysis","Scene analysis:",
-    "Security analysis:","Scene description:","Summary: ","An outdoor ","A view of ",
-    "Looking at ","We can see ","What is happening? ","Observation: ",
-    "The updated image:.","The updated image:","Updated image:","The image:.",
-    "Image analysis:","Scene:","A description of the scene:.","A description of the scene:",
-    "A description of the scene","Description of the scene:","Description:","Here is a description"]
-
-def clean(t,prompt=""):
-    t=(t or "").strip()
-    if prompt:
-        t=t.replace(prompt,"").strip()
-        for frag in prompt.split('.'):
-            frag=frag.strip()
-            if len(frag)>10:
-                t=t.replace(frag,"").replace('"'+frag+'"',"").replace("'"+frag+"'",'').strip()
-    markers=['Thinking Process','thinking process','Analyze the Request','Analyze the Image',
-             'Goal:','Output Format:','Required Content:','Step ','**Analyze','**Examine',
-             '**Setting:','**Subject','**Action','**Object','Answer the prompt']
-    if any(m in t for m in markers):
-        parts=[p.strip() for p in t.split('\n\n') if p.strip()];keep=[]
-        for p in reversed(parts):
-            pc=re.sub(r'\*\*[^*]+\*\*:?\s*','',p).strip()
-            if pc and not any(m.lower() in pc.lower() for m in ['analyze','thinking','goal:','format:','step ','required','output:','process','answer the prompt']):
-                keep.insert(0,pc)
-                if len(keep)>=2:break
-        if keep:t=' '.join(keep)
-    t=re.sub(r'\*\*([^*]+)\*\*',r'\1',t);t=re.sub(r'\*([^*]+)\*',r'\1',t)
-    t=re.sub(r'^#+\s*','',t,flags=re.MULTILINE);t=re.sub(r'^\d+\.\s*','',t,flags=re.MULTILINE)
-    t=re.sub(r'\n{2,}','. ',t);t=re.sub(r'\n',' ',t);t=re.sub(r'\s{2,}',' ',t)
-    changed=True
-    while changed:
-        changed=False
-        for p in _PREAMBLES:
-            if t.lower().startswith(p.lower()):t=t[len(p):].strip();changed=True
-    t=re.sub(r'^["\':.\s]+','',t)
-    if t and t[0].islower():t=t[0].upper()+t[1:]
-    sents=re.split(r'(?<=[.!?])\s+',t)
-    if len(sents)>3:t=' '.join(sents[:3])
-    return t.strip()
-
-# ---- scene memory (per camera) ------------------------------------------------
-class SceneMemory:
-    def __init__(s):
-        s.baseline="";s.history=deque(maxlen=6);s.danger_trail=deque(maxlen=20);s.calm=0
-    def build_context(s,bp,model=""):
-        small=any(m in model.lower() for m in["moondream","moon","1.6b","0.5b","tiny","nano"])
-        if small:
-            if s.baseline:return f"Normally: {s.baseline[:80]}. Now - {bp} Note if anything changed or looks dangerous."
-            return bp
-        parts=[]
-        if s.baseline:parts.append(f"NORMAL for this camera: {s.baseline}")
-        if s.history:parts.append("WHAT JUST HAPPENED:\n"+"\n".join(f"  [{t}] {c}" for t,c,_ in s.history))
-        if s.baseline or s.history:
-            parts.append(bp+" Read the SITUATION, not just objects: what are people doing, what is"
-                " their intent, how does this differ from normal, and is it escalating, stable, or"
-                " calming. Call out crime or danger the moment you see it. One sentence.")
-        else:parts.append(bp)
-        return "\n\n".join(parts)
-    def trend(s):
-        if len(s.danger_trail)<4:return"stable"
-        r=list(s.danger_trail);h=len(r)//2
-        first=sum(r[:h])/max(1,h);last=sum(r[h:])/max(1,len(r)-h)
-        if last>first+0.15:return"rising"
-        if last<first-0.15:return"falling"
-        return"stable"
-    def update(s,cap,danger,tm):
-        s.history.append((tm,cap,danger));s.danger_trail.append(danger)
-        if danger<0.1:
-            s.calm+=1
-            if s.calm>=3 and(not s.baseline or s.calm%20==0):s.baseline=cap
-        else:s.calm=0
+# Text cleanup, scene memory and keyword matching live in mevin_core.py.
 
 # ---- comms with web process ---------------------------------------------------
 def fetch_frame(cid):
     """Get a high-quality frame from the web process (it owns the cameras)."""
     try:
-        r=req.get(f"{API}/internal/frame-hq/{cid}",timeout=10)
+        r=_SESSION.get(f"{API}/internal/frame-hq/{cid}",timeout=10)
         if r.status_code!=200:return None
         arr=np.frombuffer(r.content,np.uint8)
         return cv2.imdecode(arr,cv2.IMREAD_COLOR)
     except Exception:return None
 
 def get_cameras():
-    try:return req.get(f"{API}/internal/cameras",timeout=10).json()
+    try:return _SESSION.get(f"{API}/internal/cameras",timeout=10).json()
     except Exception:return []
 
 def emit(ev):
-    try:req.post(f"{API}/internal/event",json=ev,timeout=10)
+    try:_SESSION.post(f"{API}/internal/event",json=ev,timeout=10)
     except Exception:pass
 
 # ---- per-camera analysis state ------------------------------------------------
@@ -176,8 +104,9 @@ def analyze(cam):
     situational=st.get("situational","true")=="true"
     m=mem(cid)
     ctx=m.build_context(bp,model) if situational else (bp if not prev_caption.get(cid) else f"{bp}\nPrevious: \"{prev_caption.get(cid)}\"")
-    caption="";base_url=st.get("ollama_url","http://localhost:11434").replace("/api/generate","").replace("/api/chat","").rstrip("/")
+    caption="";base_url=ollama_base(st.get("ollama_url",DEFAULT_OLLAMA_URL))
     last_push=0
+    ts=datetime.now();iid=f"{cid}_{int(ts.timestamp()*1000)}";thumb=""  # defined even if the call below fails early
     vlm_slots.acquire()  # wait for the GPU - may take seconds if other cameras are queued
     try:
         # CRITICAL for real-time: re-fetch the freshest frame NOW that the GPU is ours,
@@ -218,7 +147,7 @@ def analyze(cam):
                 if th:thinking+=th;continue
                 if tk:
                     if not started:
-                        if any(x in (caption+tk).lower() for x in["analyze the","thinking process","goal:","output format","step 1","**analyze"]):
+                        if is_thinking_start(caption+tk):
                             caption+=tk;continue
                         started=True;caption=tk
                     else:caption+=tk
@@ -235,21 +164,11 @@ def analyze(cam):
     if no_chg:no_change[cid]=no_change.get(cid,0)+1
     else:no_change[cid]=0;prev_caption[cid]=caption
     if cid not in prev_caption:prev_caption[cid]=caption
-    kws=json.loads(st.get("alert_keywords","[]"));cap_low=caption.lower();triggered=[]
-    for k in kws:
-        kl=k.lower()
-        if kl not in cap_low:continue
-        pos=0;found=False
-        while True:
-            idx=cap_low.find(kl,pos)
-            if idx<0:break
-            if not _NEG_RE.search(cap_low[max(0,idx-50):idx]):found=True;break
-            pos=idx+1
-        if found:triggered.append(k)
+    try:kws=json.loads(st.get("alert_keywords","[]"))
+    except Exception:kws=[]
+    triggered=match_keywords(caption,kws)
     is_alert=len(triggered)>0
-    danger=0.02 if no_chg else 0.1
-    if is_alert:danger=0.5+min(len(triggered)*0.12,0.4)
-    danger=min(1.0,danger+min(mp/100,1)*0.1)
+    danger=danger_score(triggered,no_chg,mp)
     trend="stable"
     if situational and not no_chg:m.update(caption,danger,ts.strftime("%H:%M:%S"));trend=m.trend()
     if not no_chg:situation[cid]={"text":caption,"danger":danger,"trend":trend,"ts":time.time(),"zone":cam.get("zone","Main"),"name":name}
@@ -257,7 +176,7 @@ def analyze(cam):
     snap=""
     if is_alert or st.get("snapshot_on_every","false")=="true":
         try:
-            dd=os.path.join("snapshots",ts.strftime("%Y-%m-%d"));os.makedirs(dd,exist_ok=True)
+            dd=os.path.join(SNAPSHOT_DIR,ts.strftime("%Y-%m-%d"));os.makedirs(dd,exist_ok=True)
             snap=os.path.join(dd,f"{cid}_{ts.strftime('%H%M%S')}.jpg")
             cv2.imwrite(snap,frame,[cv2.IMWRITE_JPEG_QUALITY,sint(st.get("snapshot_quality","90"),90)])
         except Exception:snap=""
@@ -283,7 +202,7 @@ def synthesize_zones():
         prompt=(f"These cameras all watch the same area ({zone}). Each reports what it sees:\n{reports}\n\n"
                 "In ONE sentence, describe the overall situation across this area. "
                 "If a person or event appears to move between cameras, say so. Focus on the big picture.")
-        model=st.get("model","gemma3:4b");base_url=st.get("ollama_url","http://localhost:11434").replace("/api/generate","").replace("/api/chat","").rstrip("/")
+        model=st.get("model","gemma3:4b");base_url=ollama_base(st.get("ollama_url",DEFAULT_OLLAMA_URL))
         vlm_slots.acquire()
         try:
             r=req.post(f"{base_url}/v1/chat/completions",json={"model":model,"messages":[{"role":"user","content":prompt}],"stream":False,"max_tokens":60,"temperature":0.3,"keep_alive":"30m"},timeout=60)
@@ -308,7 +227,7 @@ def zone_loop():
 def wait_for_web():
     for _ in range(60):
         try:
-            if req.get(f"{API}/internal/cameras",timeout=3).status_code==200:return True
+            if _SESSION.get(f"{API}/internal/cameras",timeout=3).status_code==200:return True
         except:pass
         time.sleep(1)
     return False

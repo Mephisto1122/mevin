@@ -32,3 +32,10 @@ Desktop.ini
 
 # Environment
 .env
+
+# Docker data folder
+data/
+
+# Test / tool output
+.pytest_cache/
+clips/

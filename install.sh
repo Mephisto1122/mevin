@@ -26,14 +26,25 @@ if ! command -v ollama >/dev/null 2>&1; then
   exit 1
 fi
 
+# --- Virtual environment (Homebrew Python and recent Ubuntu/Debian block system-wide pip) ---
+if [ ! -d .venv ]; then
+  echo "  Creating virtual environment (.venv)..."
+  if ! python3 -m venv .venv; then
+    echo "  [!] Could not create a virtual environment."
+    echo "      Linux: sudo apt install python3-venv   then run this again."
+    exit 1
+  fi
+fi
+PY=".venv/bin/python"
+
 echo "  Installing Python packages..."
-python3 -m pip install --upgrade pip >/dev/null 2>&1 || true
-python3 -m pip install -r requirements.txt
+"$PY" -m pip install --upgrade pip >/dev/null 2>&1 || true
+"$PY" -m pip install -r requirements.txt
 
 echo ""
 read -p "  Enable auto-discovery for IP cameras/NVRs? (y/n): " ONVIF
 if [ "$ONVIF" = "y" ] || [ "$ONVIF" = "Y" ]; then
-  python3 -m pip install -r requirements-onvif.txt
+  "$PY" -m pip install -r requirements-onvif.txt
 fi
 
 echo ""
@@ -43,5 +54,6 @@ ollama pull gemma3:4b
 echo ""
 echo "  Starting Mevin..."
 echo "  Open http://localhost:5555 in your browser."
+echo "  (Next time just run: .venv/bin/python mevin.py)"
 echo ""
-python3 mevin.py
+exec "$PY" mevin.py

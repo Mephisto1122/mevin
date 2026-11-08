@@ -4,13 +4,15 @@ pip install fastapi uvicorn opencv-python requests numpy python-multipart
 python mevin.py -> http://localhost:5555
 API docs -> http://localhost:5555/docs
 """
-import asyncio,base64,json,os,pathlib,re,socket,sqlite3,subprocess,threading,time
+import asyncio,base64,hmac,json,os,pathlib,re,secrets,socket,sqlite3,subprocess,sys,threading,time
 from collections import deque
 from datetime import datetime,timedelta
 from queue import Empty,Queue
 from typing import Optional
 import cv2,numpy as np,requests as req
-_NEG_RE=re.compile(r"\b(no|not|don't|didn't|doesn't|without|never|absence|lack|free of|no sign of|isn't|aren't|wasn't|weren't)\b",re.I)
+sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
+from mevin_core import (SceneMemory,clean as clean_caption,match_keywords,danger_score,
+    is_thinking_start,ollama_base,inject_rtsp_credentials,safe_join,tg_escape,DEFAULT_OLLAMA_URL)
 
 # ===============================================================================
 # ONVIF AUTO-DISCOVERY - find cameras & NVRs on the network, no URL typing
@@ -62,8 +64,7 @@ def onvif_streams(ip,port,user,password):
             except Exception:
                 continue
             # Inject credentials into the URL: rtsp://user:pass@ip:554/...
-            if user and "@" not in uri:
-                uri=re.sub(r"(rtsp://)",f"\\1{user}:{password}@",uri,count=1)
+            uri=inject_rtsp_credentials(uri,user,password)
             if uri in seen:continue
             seen.add(uri)
             nm=getattr(p,"Name",None) or f"Channel {i+1}"
@@ -76,12 +77,13 @@ import uvicorn
 from fastapi import FastAPI,Request
 from fastapi.responses import HTMLResponse,JSONResponse,StreamingResponse,Response
 
-PORT=5555;HOST="0.0.0.0";DB_PATH="monitor.db";SNAPSHOT_DIR="snapshots"
+PORT=int(os.environ.get("MEVIN_PORT","5555"));HOST=os.environ.get("MEVIN_HOST","0.0.0.0")
+DB_PATH=os.environ.get("MEVIN_DB","monitor.db");SNAPSHOT_DIR=os.environ.get("MEVIN_SNAPSHOTS","snapshots")
 STREAM_FPS=15;THUMB_WIDTH=280;JPEG_QUALITY=65
 
 
 DEFAULTS={
-    "model":"gemma3:4b","ollama_url":"http://localhost:11434",
+    "model":"gemma3:4b","ollama_url":DEFAULT_OLLAMA_URL,
     "prompt":"Describe who is present and exactly what they are doing. Flag any suspicious or criminal behavior: concealing items, forcing entry, fighting, grabbing someone, fleeing, hiding, or casing the area. One sentence.",
     "situational":"true","zone_synthesis":"true",
     "alert_keywords":json.dumps(["weapon","knife","gun","armed","fight","fighting","attack","attacking","punch","punching","kick","kicking","assault","aggressive","threatening","threaten","struggle","struggling","intruder","stranger","trespassing","break-in","breaking","forced","forcing","pry","prying","smash","smashing","climbing","crawling","fallen","falling","collapsed","unconscious","injured","bleeding","fire","smoke","flame","explosion","running","fleeing","chasing","shouting","screaming","panic","crowd","crush","unattended","abandoned","mask","masked","covered face","hoodie","loitering","lurking","hiding","concealing","conceal","stealing","steal","theft","shoplifting","robbery","robbing","grab","grabbing","snatching","vandalism","destroying","cornered","following","stalking","drag","dragging"]),
@@ -231,8 +233,8 @@ def send_telegram(text,photo_path=None):
     if time.time()-_last_tg<mi:return
     try:
         if photo_path and os.path.isfile(photo_path):
-            with open(photo_path,"rb")as f:req.post(f"https://api.telegram.org/bot{token}/sendPhoto",data={"chat_id":cid,"caption":text[:1024],"parse_mode":"HTML"},files={"photo":f},timeout=15)
-        else:req.post(f"https://api.telegram.org/bot{token}/sendMessage",json={"chat_id":cid,"text":text[:4096],"parse_mode":"HTML"},timeout=15)
+            with open(photo_path,"rb")as f:req.post(f"https://api.telegram.org/bot{token}/sendPhoto",data={"chat_id":cid,"caption":tg_escape(text)[:1024],"parse_mode":"HTML"},files={"photo":f},timeout=15)
+        else:req.post(f"https://api.telegram.org/bot{token}/sendMessage",json={"chat_id":cid,"text":tg_escape(text)[:4096],"parse_mode":"HTML"},timeout=15)
         _last_tg=time.time()
     except Exception as e:print(f"[TG] {e}")
 
@@ -263,6 +265,18 @@ def send_push(text,photo_path=None,is_alert=True):
     send_telegram(text,photo_path)
     send_ntfy(text,title=("Mevin Alert" if is_alert else "Mevin"),photo_path=photo_path,
               priority=("high" if is_alert else "default"))
+
+def notify_feed_item(cam_name,time_str,caption,triggered,snap,is_alert,no_change):
+    """Decide whether an analysed frame should go to the phone, and send it in the
+    background. Called for BOTH in-process analysis and events relayed from the worker
+    process - previously only the in-process path notified, so with the default worker
+    enabled no phone alerts were ever sent."""
+    st=get_all_settings()
+    if is_alert and st.get("telegram_on_alert","true")=="true":
+        msg=f"ALERT {cam_name} {time_str}\n{caption}\nKeywords: {', '.join(triggered or [])}"
+        threading.Thread(target=send_push,args=(msg,snap or None,True),daemon=True).start()
+    elif st.get("telegram_on_all","false")=="true" and not no_change:
+        threading.Thread(target=send_push,args=(f"{cam_name} {time_str}\n{caption}",None,False),daemon=True).start()
 
 # ===============================================================================
 # CAMERA FEED
@@ -363,65 +377,7 @@ gpu_monitor=GPUMonitor()
 # ===============================================================================
 # SCENE MEMORY - per-camera situational understanding
 # ===============================================================================
-class SceneMemory:
-    """A living, situational understanding of one camera.
-    Tracks what's normal, what's been happening, and where danger is trending."""
-    def __init__(s):
-        s.baseline=""           # learned "normal" description for this camera
-        s.history=deque(maxlen=6)  # recent (time_str, caption, danger_score)
-        s.danger_trail=deque(maxlen=20)  # danger scores over time
-        s.calm_count=0          # consecutive calm frames (for baseline learning)
-        s.last_situation=""     # last situational summary
-
-    def build_context(s,base_prompt,model=""):
-        """Compose a situational prompt: baseline + recent narrative + the ask.
-        Small models (moondream) get a compact version - they lose focus on long prompts."""
-        small=any(m in model.lower() for m in["moondream","moon","1.6b","0.5b","tiny","nano"])
-        if small:
-            # Compact: one short line of baseline + the ask. No long history block.
-            if s.baseline:
-                return f"Normally: {s.baseline[:80]}. Now - {base_prompt} Note if anything changed or looks dangerous."
-            return base_prompt
-        # Full situational reasoning for capable models
-        parts=[]
-        if s.baseline:
-            parts.append(f"NORMAL for this camera: {s.baseline}")
-        if s.history:
-            recent="\n".join(f"  [{t}] {c}" for t,c,_ in s.history)
-            parts.append(f"WHAT JUST HAPPENED:\n{recent}")
-        if s.baseline or s.history:
-            parts.append(
-                base_prompt+
-                " Read the SITUATION, not just objects: what are people doing, what is their"
-                " intent, how does this differ from normal, and is it escalating, stable, or"
-                " calming. Call out crime or danger the moment you see it. One sentence."
-            )
-        else:
-            parts.append(base_prompt)
-        return "\n\n".join(parts)
-
-    def trend(s):
-        """Return danger trajectory: rising / falling / stable."""
-        if len(s.danger_trail)<4:return"stable"
-        recent=list(s.danger_trail)
-        first=sum(recent[:len(recent)//2])/max(1,len(recent)//2)
-        last=sum(recent[len(recent)//2:])/max(1,len(recent)-len(recent)//2)
-        if last>first+0.15:return"rising"
-        if last<first-0.15:return"falling"
-        return"stable"
-
-    def update(s,caption,danger,time_str):
-        s.history.append((time_str,caption,danger))
-        s.danger_trail.append(danger)
-        s.last_situation=caption
-        # Learn baseline from calm, stable moments
-        if danger<0.1:
-            s.calm_count+=1
-            # After a few calm frames, this is "normal" for the camera
-            if s.calm_count>=3 and(not s.baseline or s.calm_count%20==0):
-                s.baseline=caption
-        else:
-            s.calm_count=0
+# SceneMemory lives in mevin_core.py (shared with the worker process).
 
 # ===============================================================================
 # VLM ANALYZER
@@ -479,7 +435,7 @@ class VLMAnalyzer:
                 "If a person or event appears to move between cameras, say so. "
                 "Focus on the big picture, not each camera separately.")
         model=st.get("model","gemma3:4b")
-        base_url=st.get("ollama_url",DEFAULTS["ollama_url"]).replace("/api/generate","").replace("/api/chat","").rstrip("/")
+        base_url=ollama_base(st.get("ollama_url",DEFAULTS["ollama_url"]))
         s.vlm_slots.acquire()
         try:
             r=req.post(f"{base_url}/v1/chat/completions",json={
@@ -510,73 +466,7 @@ class VLMAnalyzer:
         prev=s.prev_gray.get(cid);s.prev_gray[cid]=g
         if prev is None:return 100.0
         d=cv2.absdiff(prev,g);_,th=cv2.threshold(d,25,255,cv2.THRESH_BINARY);return(np.count_nonzero(th)/(th.shape[0]*th.shape[1]))*100
-    def _clean(s,t,prompt=""):
-        import re
-        t=t.strip()
-        # Strip prompt echo - model sometimes repeats the prompt
-        if prompt:
-            # Remove exact prompt text
-            t=t.replace(prompt,"").strip()
-            # Remove quoted prompt fragments
-            for frag in prompt.split('.'):
-                frag=frag.strip()
-                if len(frag)>10:
-                    t=t.replace(frag,"").strip()
-                    t=t.replace('"'+frag+'"',"").strip()
-                    t=t.replace("'"+frag+"'",'').strip()
-        # Strip thinking/analysis blocks
-        think_markers=['Thinking Process','thinking process','Analyze the Request','Analyze the Image',
-                       'Goal:','Output Format:','Required Content:','Step ','**Analyze','**Examine',
-                       '**Setting:','**Subject','**Action','**Object','Answer the prompt']
-        has_thinking=any(m in t for m in think_markers)
-        if has_thinking:
-            parts=[p.strip() for p in t.split('\n\n') if p.strip()]
-            clean_parts=[]
-            for p in reversed(parts):
-                p_clean=re.sub(r'\*\*[^*]+\*\*:?\s*','',p).strip()
-                if p_clean and not any(m.lower() in p_clean.lower() for m in ['analyze','thinking','goal:','format:','step ','required','output:','process','answer the prompt']):
-                    clean_parts.insert(0,p_clean)
-                    if len(clean_parts)>=2:break
-            if clean_parts:t=' '.join(clean_parts)
-            else:
-                last=t.split('.')
-                t='. '.join(last[-3:]).strip() if len(last)>3 else t
-        # Strip markdown
-        t=re.sub(r'\*\*([^*]+)\*\*',r'\1',t)
-        t=re.sub(r'\*([^*]+)\*',r'\1',t)
-        t=re.sub(r'^#+\s*','',t,flags=re.MULTILINE)
-        t=re.sub(r'^\d+\.\s*','',t,flags=re.MULTILINE)
-        t=re.sub(r'^\*\s+','',t,flags=re.MULTILINE)
-        t=re.sub(r'\n{2,}','. ',t)
-        t=re.sub(r'\n',' ',t)
-        t=re.sub(r'\s{2,}',' ',t)
-        # Strip preambles - loop until no more matches
-        changed=True
-        while changed:
-            changed=False
-            for p in["An image showing ","An image of ","The image shows ","The scene shows ",
-                      "In this image, ","In this scene, ","I can see ","Here is ","Here's ",
-                      "This appears ","This image shows ","Based on the image, ",
-                      "The camera shows ","The image depicts ","In the image, ",
-                      "Content: ","Analyze the Image: ","A wide shot of ","A shot of ",
-                      "An analysis of the scene","An analysis of ","Analysis: ",
-                      "Here is my analysis","Here is the analysis","Scene analysis:",
-                      "Security analysis:","Scene description:","Summary: ",
-                      "An outdoor ","A view of ","Looking at ","We can see ",
-                      "What is happening? ","Observation: ",
-                      "The updated image:.","The updated image:","Updated image:",
-                      "The image:.","Image analysis:","Scene:",
-                      "A description of the scene:.","A description of the scene:",
-                      "A description of the scene","Description of the scene:",
-                      "Description:","Here is a description"]:
-                if t.lower().startswith(p.lower()):t=t[len(p):].strip();changed=True
-        # Remove leftover quotes and colons at start
-        t=re.sub(r'^["\':.\s]+','',t)
-        if t and t[0].islower():t=t[0].upper()+t[1:]
-        # Cap at 3 sentences
-        sents=re.split(r'(?<=[.!?])\s+',t)
-        if len(sents)>3:t=' '.join(sents[:3])
-        return t.strip()
+    def _clean(s,t,prompt=""):return clean_caption(t,prompt)
     def _analyze(s,cam):
         frame=cam.get_frame()
         if frame is None:return
@@ -590,7 +480,7 @@ class VLMAnalyzer:
         model=st.get("model","gemma3:4b")
         ctx=mem.build_context(bp,model) if situational else (bp if not s.prev_caption.get(cam.id,"") else f"{bp}\nPrevious: \"{s.prev_caption.get(cam.id,'')}\"")
         caption=""
-        base_url=st.get("ollama_url",DEFAULTS["ollama_url"]).replace("/api/generate","").replace("/api/chat","").rstrip("/")
+        base_url=ollama_base(st.get("ollama_url",DEFAULTS["ollama_url"]))
         s.vlm_slots.acquire()  # wait for a free GPU slot (serializes inference on 1 GPU)
         # Real-time: grab the FRESHEST frame now the GPU is ours, not the one from before the wait
         fresh=cam.get_frame()
@@ -645,8 +535,7 @@ class VLMAnalyzer:
                     if th:thinking+=th;continue
                     if tk:
                         if not content_started:
-                            test=(caption+tk).lower()
-                            if any(m in test for m in ["analyze the","thinking process","goal:","output format","step 1","**analyze"]):
+                            if is_thinking_start(caption+tk):
                                 caption+=tk;continue
                             content_started=True;caption=tk
                         else:caption+=tk
@@ -661,25 +550,12 @@ class VLMAnalyzer:
         if no_chg:s.no_change_count[cam.id]=s.no_change_count.get(cam.id,0)+1
         else:s.no_change_count[cam.id]=0;s.prev_caption[cam.id]=caption
         if cam.id not in s.prev_caption:s.prev_caption[cam.id]=caption
-        kws=json.loads(st.get("alert_keywords","[]"))
-        cap_low=caption.lower();triggered=[]
-        for k in kws:
-            kl=k.lower()
-            if kl not in cap_low:continue
-            pos=0;found_positive=False
-            while True:
-                idx=cap_low.find(kl,pos)
-                if idx<0:break
-                window=cap_low[max(0,idx-50):idx]
-                if not _NEG_RE.search(window):found_positive=True;break
-                pos=idx+1
-            if found_positive:triggered.append(k)
+        try:kws=json.loads(st.get("alert_keywords","[]"))
+        except Exception:kws=[]
+        triggered=match_keywords(caption,kws)
         is_alert=len(triggered)>0
-        # Compute danger score for the situational trajectory
-        danger=0.02 if no_chg else 0.1
-        if is_alert:danger=0.5+min(len(triggered)*0.12,0.4)
-        danger+=min(mp/100,1)*0.1
-        danger=min(1.0,danger)
+        # Danger score for the situational trajectory
+        danger=danger_score(triggered,no_chg,mp)
         # Update the living scene memory
         trend="stable"
         if situational and not no_chg:
@@ -697,10 +573,7 @@ class VLMAnalyzer:
         s._broadcast({"type":"feed_item","item_id":iid,"camera_id":cam.id,"camera_name":cam.name,"time":ts.strftime("%H:%M:%S"),
             "text":caption,"thumb":thumb,"is_alert":is_alert,"alert_keywords":triggered,
             "no_change":no_chg,"motion":round(mp,1),"snapshot":snap.replace("\\","/") if snap else"","trend":trend,"danger":round(danger,2)})
-        notify_alert=is_alert and st.get("telegram_on_alert","true")=="true"
-        notify_all=st.get("telegram_on_all","false")=="true" and not no_chg
-        if notify_alert:threading.Thread(target=send_push,args=(f"ALERT {cam.name} {ts.strftime('%H:%M:%S')}\n{caption}\nKeywords: {', '.join(triggered)}",snap,True),daemon=True).start()
-        elif notify_all:threading.Thread(target=send_push,args=(f"{cam.name} {ts.strftime('%H:%M:%S')}\n{caption}",None,False),daemon=True).start()
+        notify_feed_item(cam.name,ts.strftime('%H:%M:%S'),caption,triggered,snap,is_alert,no_chg)
     def _loop(s):
         """Dispatcher: keeps one analysis worker per connected camera running in parallel.
         Cameras no longer wait in line - each is analyzed on its own thread."""
@@ -853,16 +726,19 @@ class DataMaintenance:
             except:pass
         # Size cap
         if s._snap_size()>msm:
-            all_f=[];
+            all_f=[]
             for root,_,files in os.walk(SNAPSHOT_DIR):
-                for f in files:fp=os.path.join(root,f);
-                try:all_f.append((os.path.getmtime(fp),fp))
-                except:pass
+                for f in files:
+                    fp=os.path.join(root,f)
+                    try:all_f.append((os.path.getmtime(fp),os.path.getsize(fp),fp))
+                    except OSError:pass
             all_f.sort()
-            for _,fp in all_f:
-                if s._snap_size()<=msm*0.8:break
-                try:os.remove(fp)
-                except:pass
+            # Delete oldest first until we're at 80% of the cap (track size instead of re-walking)
+            total=sum(sz for _,sz,_ in all_f);target=msm*0.8*1024*1024
+            for _,sz,fp in all_f:
+                if total<=target:break
+                try:os.remove(fp);total-=sz
+                except OSError:pass
         s.last_stats={"db_size_mb":round(s._db_size(),1),"snap_size_mb":round(s._snap_size(),1),"total_obs":s._count_obs(),"retain_days":rd,"max_obs":mo,"max_snap_mb":msm}
     def _loop(s):
         time.sleep(10)
@@ -942,25 +818,47 @@ MJPEG_WIDTH=640
 # ===============================================================================
 from fastapi import Header,HTTPException,Query,Depends,APIRouter
 
-async def check_auth(authorization:str=Header(default=""),token:str=Query(default="")):
-    if not AUTH_TOKEN:return
-    tok=token or authorization.replace("Bearer ","")
-    if tok!=AUTH_TOKEN:raise HTTPException(401,"Invalid or missing token")
+from starlette.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse
+from urllib.parse import unquote
 
-# Public routes (dashboard, video, SSE) - no auth
-# API routes - auth protected when MEVIN_TOKEN is set
+def _token_ok(tok):
+    return bool(tok) and hmac.compare_digest(str(tok).encode(),AUTH_TOKEN.encode())
+
+async def check_auth(request:Request,authorization:str=Header(default=""),token:str=Query(default="")):
+    """When MEVIN_TOKEN is set, require it as a Bearer header, ?token=, or the mevin_token
+    cookie (the dashboard sets the cookie so images and the event stream are covered too)."""
+    if not AUTH_TOKEN:return
+    tok=token or authorization.removeprefix("Bearer ").strip() or unquote(request.cookies.get("mevin_token",""))
+    if not _token_ok(tok):raise HTTPException(401,"Invalid or missing token")
+
+# Only the analysis worker on this machine may use /internal/*. It's checked by source
+# address AND a per-run secret, so nobody on the LAN can pull frames or inject fake events.
+INTERNAL_KEY=os.environ.get("MEVIN_INTERNAL_KEY") or secrets.token_hex(16)
+async def check_internal(request:Request,x_mevin_internal:str=Header(default="")):
+    host=request.client.host if request.client else ""
+    if host not in("127.0.0.1","::1","localhost") or not hmac.compare_digest(x_mevin_internal.encode(),INTERNAL_KEY.encode()):
+        raise HTTPException(403,"Internal endpoint")
+
+# Dashboard page is public (it's static HTML and asks for the token itself).
+# API, live video, snapshots and SSE are auth-protected when MEVIN_TOKEN is set.
 api=APIRouter(prefix="/api",dependencies=[Depends(check_auth)])
 
 @app.get("/",response_class=HTMLResponse)
 async def index():return HTML
 
-@app.get("/video/{cam_id}")
+@app.get("/healthz")
+async def healthz():
+    """Liveness probe (Docker HEALTHCHECK / uptime monitors). Reveals nothing sensitive."""
+    return{"ok":True,"cameras":len(feeds),"connected":sum(1 for c in feeds.values() if c.connected)}
+
+@app.get("/video/{cam_id}",dependencies=[Depends(check_auth)])
 async def video_feed(cam_id:str,small:int=0):
     cam=feeds.get(cam_id)
     if not cam:return Response(status_code=404)
     return StreamingResponse(cam.mjpeg_gen(small=bool(small)),media_type="multipart/x-mixed-replace;boundary=frame")
 
-@app.get("/snapshot-live/{cam_id}")
+@app.get("/snapshot-live/{cam_id}",dependencies=[Depends(check_auth)])
 async def snapshot_live(cam_id:str):
     """Single current JPEG from the shared encoder. Board tiles poll this every ~1.5s
     instead of holding a live stream - far less load, looks live, frees the GIL."""
@@ -972,7 +870,7 @@ async def snapshot_live(cam_id:str):
     return Response(content=b,media_type="image/jpeg",headers={"Cache-Control":"no-store"})
 
 # -- Internal endpoints for the analysis worker process ------------------------
-@app.get("/internal/frame-hq/{cam_id}")
+@app.get("/internal/frame-hq/{cam_id}",dependencies=[Depends(check_internal)])
 async def internal_frame_hq(cam_id:str):
     """High-quality full frame for the worker to analyze. Worker fetches this instead
     of opening its own camera connection, so cameras stay solely owned here."""
@@ -983,13 +881,13 @@ async def internal_frame_hq(cam_id:str):
     _,jpg=cv2.imencode(".jpg",f,[cv2.IMWRITE_JPEG_QUALITY,92])
     return Response(content=jpg.tobytes(),media_type="image/jpeg",headers={"Cache-Control":"no-store"})
 
-@app.get("/internal/cameras")
+@app.get("/internal/cameras",dependencies=[Depends(check_internal)])
 async def internal_cameras():
     """Camera list + zones for the worker (id, name, zone, connected)."""
     return [{"id":c.id,"name":c.name,"zone":getattr(c,"zone","Main"),"connected":c.connected}
             for c in feeds.values()]
 
-@app.post("/internal/event")
+@app.post("/internal/event",dependencies=[Depends(check_internal)])
 async def internal_event(req:Request):
     """Worker posts analysis events here. We relay to SSE clients and update state."""
     m=await req.json();t=m.get("type")
@@ -1005,13 +903,15 @@ async def internal_event(req:Request):
                 "timestamp":m.get("iso",datetime.now().isoformat()),"text":m.get("text",""),
                 "is_alert":int(bool(m.get("is_alert"))),"alert_keywords":m.get("alert_keywords",[]),
                 "snapshot_path":m.get("snapshot",""),"thumb_b64":m.get("thumb","")})
+        notify_feed_item(m.get("camera_name",""),m.get("time",""),m.get("text",""),
+            m.get("alert_keywords",[]),m.get("snapshot",""),bool(m.get("is_alert")),bool(m.get("no_change")))
     elif t=="zone_summary":
         analyzer.zone_picture[m["zone"]]={"text":m.get("text",""),"time":m.get("time",""),"danger":m.get("danger",0)}
     # Relay to all dashboard SSE clients
     analyzer._broadcast(m)
     return {"ok":True}
 
-@app.get("/events")
+@app.get("/events",dependencies=[Depends(check_auth)])
 async def sse_events():
     q=analyzer.subscribe()
     async def gen():
@@ -1029,14 +929,12 @@ async def sse_events():
         finally:analyzer.unsubscribe(q)
     return StreamingResponse(gen(),media_type="text/event-stream",headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no","Connection":"keep-alive"})
 
-@app.get("/snapshot/{file_path:path}")
+@app.get("/snapshot/{file_path:path}",dependencies=[Depends(check_auth)])
 async def snapshot_file(file_path:str):
-    safe=os.path.normpath(file_path)
-    if ".." in safe:return Response(status_code=403)
-    p=os.path.join(SNAPSHOT_DIR,safe)
+    p=safe_join(SNAPSHOT_DIR,file_path)
+    if p is None or not p.lower().endswith((".jpg",".jpeg")):return Response(status_code=403)
     if not os.path.isfile(p):return Response(status_code=404)
-    with open(p,"rb")as f:data=f.read()
-    return Response(content=data,media_type="image/jpeg")
+    return FileResponse(p,media_type="image/jpeg")
 
 # -- Camera CRUD ---------------------------------------------------------------
 @api.get("/cameras")
@@ -1080,7 +978,9 @@ async def get_settings():return get_all_settings()
 @api.post("/settings")
 async def save_settings(req:Request):
     d=await req.json()
-    for k,v in d.items():set_setting(k,v)
+    for k,v in d.items():
+        if str(k).startswith("_"):continue  # internal state (e.g. worker heartbeat)
+        set_setting(k,v)
     return{"ok":True}
 
 # -- Focus ---------------------------------------------------------------------
@@ -1168,7 +1068,7 @@ async def timeline(hours:int=12):
 
 # -- Gallery -------------------------------------------------------------------
 @api.get("/gallery")
-async def gallery():
+def gallery():
     items=[]
     for root,_,files in os.walk(SNAPSHOT_DIR):
         for f in sorted(files,reverse=True):
@@ -1180,7 +1080,7 @@ async def gallery():
 
 # -- Telegram ------------------------------------------------------------------
 @api.post("/test-telegram")
-async def test_telegram():
+def test_telegram():
     s=get_all_settings();token=s.get("telegram_token","");cid=s.get("telegram_chat_id","")
     if not token or not cid:return{"ok":False,"error":"Missing token or chat ID"}
     try:
@@ -1189,7 +1089,7 @@ async def test_telegram():
     except Exception as e:return{"ok":False,"error":str(e)}
 
 @api.post("/test-ntfy")
-async def test_ntfy():
+def test_ntfy():
     s=get_all_settings();topic=s.get("ntfy_topic","").strip()
     if not topic:return{"ok":False,"error":"Enter an ntfy topic first"}
     server=s.get("ntfy_server","https://ntfy.sh").strip().rstrip("/")
@@ -1227,15 +1127,14 @@ async def onvif_discover_status():
 async def onvif_connect(req_:Request):
     """Given a device IP/port + credentials, return its RTSP streams (channels)."""
     d=await req_.json()
-    res=onvif_streams(d.get("ip",""),sint(str(d.get("port",80)),80),
+    return await run_in_threadpool(onvif_streams,d.get("ip",""),sint(str(d.get("port",80)),80),
                       d.get("user","admin"),d.get("password",""))
-    return res
 
 @api.post("/onvif-add-all")
 async def onvif_add_all(req_:Request):
     """Add every channel from an ONVIF device as cameras in one click."""
     d=await req_.json()
-    res=onvif_streams(d.get("ip",""),sint(str(d.get("port",80)),80),
+    res=await run_in_threadpool(onvif_streams,d.get("ip",""),sint(str(d.get("port",80)),80),
                       d.get("user","admin"),d.get("password",""))
     if not res.get("ok"):return res
     zone=d.get("zone","") or d.get("ip","Cameras")
@@ -1266,14 +1165,14 @@ async def scan_status():
     with _scan_lock:return dict(_scan)
 
 @api.get("/video-files")
-async def video_files():return scan_video_files()
+def video_files():return scan_video_files()
 
 # -- Data Stats ----------------------------------------------------------------
 @api.get("/data-stats")
 async def data_stats():return maintenance.last_stats
 
 @api.post("/cleanup")
-async def run_cleanup():
+def run_cleanup():
     maintenance.run_cleanup();return{"ok":True,"stats":maintenance.last_stats}
 
 # Register auth-protected API routes
@@ -1302,8 +1201,8 @@ def _start_worker():
         print("  Workers:     in-process (mevin_worker.py not found)")
         return
     try:
-        import sys
-        env=dict(os.environ,MEVIN_API=f"http://127.0.0.1:{PORT}")
+        env=dict(os.environ,MEVIN_API=f"http://127.0.0.1:{PORT}",MEVIN_INTERNAL_KEY=INTERNAL_KEY,
+                 MEVIN_DB=os.path.abspath(DB_PATH),MEVIN_SNAPSHOTS=os.path.abspath(SNAPSHOT_DIR))
         _worker_proc=subprocess.Popen([sys.executable,wpath],env=env)
         print(f"  Workers:     separate process (PID {_worker_proc.pid}) - GIL isolated")
     except Exception as e:
@@ -1329,6 +1228,7 @@ if __name__=="__main__":
     print(f"  Cameras:     {len(cams)}")
     for c in cams:print(f"    - {c['name']} ({c['source']})")
     _start_worker()
+    print(f"  Auth:        {'token required (MEVIN_TOKEN)' if AUTH_TOKEN else 'off - anyone on your network can open it'}")
     print(f"  Dashboard:   http://localhost:{PORT}")
     print(f"  API Docs:    http://localhost:{PORT}/docs")
     print("="*60+"\n")
